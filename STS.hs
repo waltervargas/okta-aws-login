@@ -34,7 +34,7 @@ awsAssumeRole sa@(SamlAssertion samlAssertion) sr@SamlRole{..} = do
   v <- isVerbose
   r <- getAwsRegion
   lgr <- liftIO $ newLogger (if v then Debug else Info) stdout
-  env <- liftIO $ newEnv r Discover <&> set envLogger lgr
+  env <- liftIO $ newEnv r (FromKeys (AccessKey "xxx") (SecretKey "yyy")) <&> set envLogger lgr -- shouldn't need valid keys for this call
 
   stsCreds <- liftIO $ runResourceT . runAWST env $ do
     res <- send (assumeRoleWithSAML srRoleARN srPrincipalARN samlAssertion)

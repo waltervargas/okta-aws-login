@@ -11,6 +11,7 @@ module AWSCredsFile (
 import           App
 import           Control.Bool
 import           Control.Lens
+import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import qualified Data.HashMap.Strict as M
@@ -28,16 +29,15 @@ import           Types
 updateAwsCreds :: Credentials
                -> App ()
 updateAwsCreds creds = do
-
   createCredsFileIfDoesntExist
 
   OktaSamlConfig{..} <- getOktaSamlConfig
 
   credsFile <- awsCredentialsFileName
-  savedCreds <- liftIO $ readIniFile credsFile >>=
-                  \x -> case x
-                          of Left e -> error $ "Unable to read AWS credentials file from " <> credsFile <> " error: " <> e
-                             Right c -> return $ unIni c
+  !savedCreds <- liftIO $ readIniFile credsFile >>=
+                   \x -> case x
+                           of Left e -> error $ "Unable to read AWS credentials file from " <> credsFile <> " error: " <> e
+                              Right c -> return $ unIni c
 
   region <- getAwsRegion
 
@@ -63,12 +63,17 @@ awsCredentialsFileName = liftIO $ do
   return $ h </> ".aws" </> "credentials"
 
 
-
+-- | Needs to be created before we make any AWS calls
 createCredsFileIfDoesntExist :: App ()
 createCredsFileIfDoesntExist = do
   fn <- awsCredentialsFileName
   let (awsDir, _) = splitFileName fn
 
-  liftIO $ unlessM (doesFileExist fn) $ do
-    createDirectoryIfMissing False awsDir
-    writeFile "" fn
+  created <- liftIO $
+    ifThenElseM (doesFileExist fn)
+        (return False)
+        (do createDirectoryIfMissing False awsDir
+            writeFile fn "[default]"
+            return True)
+
+  when created $ $(logInfo) $ T.pack $ "Created default AWS settings " <> fn
