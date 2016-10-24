@@ -51,6 +51,7 @@ executable okta-aws-login
                      , lens-aeson
                      , monad-control
                      , monad-logger
+                     , monad-loops
                      , optparse-applicative
                      , tagsoup
                      , text

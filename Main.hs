@@ -9,8 +9,11 @@ module Main where
 import           AWSCredsFile
 import           App
 import           Args
+import           Control.Concurrent
 import           Control.Monad
+import           Control.Monad.IO.Class
 import           Control.Monad.Logger
+import           Control.Monad.Loops
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Lazy as LB
 import           Data.List.NonEmpty (NonEmpty(..))
@@ -29,6 +32,30 @@ import           Types
 main:: IO ()
 main = runWithArgs $ runApp $ do
   cr <- getUserCredentials
+
+  needsMfa <- refreshSession cr
+
+  _ <- whileM keepReloading $ do
+    $(logInfo) "Refreshed AWS session."
+
+    liftIO $ threadDelay (59 * 60 * 1000000) -- 59min, temporary token has 1h TTL
+
+    $(logInfo) "Refreshing AWS session ..."
+
+    doRefresh <- if needsMfa
+                 then (askUser True "Refresh session? (y/n) >") >>= return . ((==) "y") -- if we get session from Okta first it may expire by the time user pays any attention to this, need to ask first
+                 else return True -- probably on a trusted network, just try to refresh
+    if doRefresh
+    then refreshSession cr >>=  const (return ())
+    else return ()
+
+  return ()
+
+
+
+refreshSession :: UserCredentials
+               -> App Bool -- ^ whether or not MFA was needed
+refreshSession cr = do
   errorOrRes <- oktaAuthenticate $ AuthRequestUserCredentials cr
 
   res <- case errorOrRes
@@ -36,10 +63,10 @@ main = runWithArgs $ runApp $ do
               Right r -> return r
 
   -- May need to try MFA
-  sessionTok <- case res
-                  of AuthResponseSuccess st -> return st
-                     AuthResponseMFARequired st mfas -> askForMFA st mfas
-                     AuthResponseOther e -> error $ "Unexpected Okta response: " <> (show e)
+  (mfaRequired, sessionTok) <- case res
+                                 of AuthResponseSuccess st -> return (False, st)
+                                    AuthResponseMFARequired st mfas -> askForMFA st mfas >>= \t -> return (True, t)
+                                    AuthResponseOther e -> error $ "Unexpected Okta response: " <> (show e)
 
   saml <- getOktaAWSSaml sessionTok
   samlRole <- chooseSamlRole (parseSamlAssertion saml)
@@ -52,7 +79,7 @@ main = runWithArgs $ runApp $ do
   $(logDebug) $ T.pack $ "Updating Docker auths from " <> (show dockerAuths)
   updateDockerConfig dockerAuths
 
-
+  return mfaRequired
 
 
 askForMFA :: StateToken

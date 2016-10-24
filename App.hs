@@ -11,6 +11,7 @@ module App (
 , getOktaSamlConfig
 , getUserCredentials
 , isVerbose
+, keepReloading
 , lookupChoice
 , numericChoices
 , runApp
@@ -54,14 +55,16 @@ runApp :: App a
        -> IO a
 runApp appA args@Args{..} = do
   samlConf <- findOktaSamlConfig args
-  let llf _ ll = if argVerbose then True else (ll >= LevelInfo)
+  let llf _ ll = if argsVerbose then True else (ll >= LevelInfo)
 
   runStderrLoggingT $ filterLogger llf $ runReaderT (unApp appA) (args, samlConf)
 
 
 isVerbose :: App Bool
-isVerbose = fmap argVerbose getArgs
+isVerbose = fmap argsVerbose getArgs
 
+keepReloading :: App Bool
+keepReloading = fmap argsKeepReloading getArgs
 
 getOktaSamlConfig :: App OktaSamlConfig
 getOktaSamlConfig = App $ fmap snd ask
@@ -69,7 +72,7 @@ getOktaSamlConfig = App $ fmap snd ask
 
 getUserCredentials :: App UserCredentials
 getUserCredentials = getArgs >>= \Args{..} -> do
-  uName <- case argUserName
+  uName <- case argsUserName
              of Just u -> return u
                 Nothing -> UserName <$> (askUser True "User > ")
   password <- Password <$> (askUser False "Please enter Okta password > ")

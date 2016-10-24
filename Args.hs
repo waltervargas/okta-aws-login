@@ -16,11 +16,12 @@ import           Options.Applicative
 import           Types
 
 
-data Args = Args { argVerbose :: !Bool
-                 , argUserName :: !(Maybe UserName)
+data Args = Args { argsVerbose :: !Bool
+                 , argsUserName :: !(Maybe UserName)
                  , argsAwsProfile :: !(Maybe AWSProfile)
-                 , argsRegion :: Region
+                 , argsRegion :: !Region
                  , argsConfigFile :: !FilePath
+                 , argsKeepReloading :: !Bool
                  } deriving (Show)
 
 
@@ -51,6 +52,10 @@ parseArgs defConf = Args
         <> value defConf
         <> showDefaultWith show
         <> help "Use alternative config file." ))
+     <*> switch
+         ( long "keep-reloading"
+        <> short 'k'
+        <> help "Keep reloading session token hourly (that's the max TTL at the moment). This only works well on a trusted network where you don't need MFA.")
 
 
 parseRegion :: ReadM Region
