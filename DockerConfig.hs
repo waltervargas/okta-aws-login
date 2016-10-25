@@ -9,9 +9,7 @@ module DockerConfig (
 
 
 import           App
-import           Control.Bool
 import           Control.Lens
-import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import           Data.Aeson as A
@@ -31,9 +29,10 @@ updateDockerConfig :: [AuthorizationData]
 updateDockerConfig [] = return ()
 updateDockerConfig ads = do
 
-  createConfFileIfDoesntExist
-
   cfName <- dockerConfFileName
+
+  createConfFileIfDoesntExist cfName "{}"
+
   !conf <- liftIO $ LB.readFile cfName >>= return . decode >>= return . (fromMaybe (object []))
 
   let validAuths = catMaybes $ fmap authSection ads
@@ -60,18 +59,3 @@ dockerConfFileName :: App FilePath
 dockerConfFileName = liftIO $ do
   h <- getHomeDirectory
   return $ h </> ".docker" </> "config.json"
-
-
-createConfFileIfDoesntExist :: App ()
-createConfFileIfDoesntExist = do
-  fn <- dockerConfFileName
-  let (dockerDir, _) = splitFileName fn
-
-  created <- liftIO $
-    ifThenElseM (doesFileExist fn)
-      (return False)
-      ( do createDirectoryIfMissing False dockerDir
-           writeFile fn "{}"
-           return True)
-
-  when created $ $(logInfo) $ T.pack $ "Created default docker config " <> fn

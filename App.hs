@@ -2,11 +2,13 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE TemplateHaskell            #-}
 
 module App (
   App
 , askUser
 , chooseOne
+, createConfFileIfDoesntExist
 , getAwsRegion
 , getOktaSamlConfig
 , getUserCredentials
@@ -21,6 +23,8 @@ module App (
 
 import           AppConfig
 import           Args
+import           Control.Bool
+import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
@@ -35,6 +39,8 @@ import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import           Network.AWS.Types
+import           System.Directory
+import           System.FilePath
 import           System.IO
 import           Types
 
@@ -130,6 +136,23 @@ chooseOne opts = do
     of Nothing -> do liftIO $ putStrLn $ "Sorry, your choice of " <> (show uc) <> " is not available, please try again."
                      chooseOne opts
        Just x -> return x
+
+
+-- | Creates a missing config file with a default text
+createConfFileIfDoesntExist :: FilePath
+                            -> Text
+                            -> App ()
+createConfFileIfDoesntExist fp txt = do
+  let (dir, _) = splitFileName fp
+
+  created <- liftIO $
+    ifThenElseM (doesFileExist fp)
+      (return False)
+      ( do createDirectoryIfMissing False dir
+           TIO.writeFile fp txt
+           return True)
+
+  when created $ $(logInfo) $ "Created default config " <> (T.pack fp)
 
 
 
