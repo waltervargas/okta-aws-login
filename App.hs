@@ -29,7 +29,6 @@ import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import           Control.Monad.Trans.Reader
-import           Data.List
 import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NEL
 import qualified Data.List.NonEmpty as NL
@@ -109,12 +108,12 @@ tshow = T.pack . show
 
 
 -- | Interactive choices with numeric string keys
-numericChoices :: [(String -> a -> InteractiveChoce a)]
-numericChoices = (InteractiveChoce . show) <$> ([0..] :: [Int])
+numericChoices :: [(Text -> a -> InteractiveChoce a)]
+numericChoices = (InteractiveChoce . tshow) <$> ([0..] :: [Int])
 
 
 -- | Lookup chosen value by key
-lookupChoice :: String -- ^ key
+lookupChoice :: Text -- ^ key
              -> [InteractiveChoce a]
              -> Maybe a
 lookupChoice k cs =
@@ -126,13 +125,13 @@ chooseOne :: NonEmpty (InteractiveChoce a)
           -> App a
 chooseOne (InteractiveChoce{..} :| []) = return icChoice
 chooseOne opts = do
-  liftIO $ putStrLn $ intercalate "\n" $
+  liftIO $ TIO.putStrLn $ T.intercalate "\n" $
              fmap (\InteractiveChoce{..} -> "[" <> icKey <> "] " <> icMessage)
                (NL.toList opts)
 
   uc <- askUser True "Please choose> "
 
-  case lookupChoice (T.unpack uc) (NL.toList opts)
+  case lookupChoice uc (NL.toList opts)
     of Nothing -> do liftIO $ putStrLn $ "Sorry, your choice of " <> (show uc) <> " is not available, please try again."
                      chooseOne opts
        Just x -> return x

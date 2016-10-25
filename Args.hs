@@ -36,7 +36,7 @@ parseArgs defConf = Args
          ( long "user"
         <> short 'u'
         <> help "User name." ))
-     <*> (optional $ fmap AWSProfile $ strOption
+     <*> (optional $ fmap (AWSProfile . T.pack) $ strOption
          ( long "aws-profile"
         <> short 'p'
         <> help "AWS profile. Default config entry will be used if not given." ))

@@ -17,7 +17,7 @@ module OktaClient (
 
 
 import           App
-import           Control.Monad.IO.Class
+import           Control.Monad.Catch
 import           Control.Monad.Logger
 import           Data.Aeson
 import qualified Data.ByteString.Lazy as LB
@@ -59,7 +59,7 @@ oktaPost :: (ToJSON reqBody, FromJSON resBody)
          -> App (Either OktaError resBody)
 oktaPost rp rb = do
   OktaSamlConfig{..} <- getOktaSamlConfig
-  initReq <- liftIO $ parseRequest $ "https://" <> (unOktaOrg ocOrg) <> ".okta.com" <> rp
+  initReq <- tParseRequest $ "https://" <> (unOktaOrg ocOrg) <> ".okta.com" <> rp
   let req = initReq { method = "POST"
                     , requestHeaders = [ (hContentType, "application/json")
                                        , (hAccept,      "application/json")
@@ -96,11 +96,11 @@ getOktaAWSSaml (SessionToken tok) = do
 
   -- This HTML is expected to contain
   -- <input name="SAMLResponse" type="hidden" value="
-  let redirectUrl = "https://" <> (unOktaOrg ocOrg) <> ".okta.com/app/amazon_aws/" <> (unOktaAwsAccountId ocOktaAwsAccountId) <> "/sso/saml?onetimetoken=" <> (T.unpack tok)
+  let redirectUrl = "https://" <> (unOktaOrg ocOrg) <> ".okta.com/app/amazon_aws/" <> (unOktaAwsAccountId ocOktaAwsAccountId) <> "/sso/saml?onetimetoken=" <> tok
 
-  initReq <- liftIO $ parseRequest $ "https://" <> (unOktaOrg ocOrg) <> ".okta.com/login/sessionCookieRedirect"
+  initReq <- tParseRequest $ "https://" <> (unOktaOrg ocOrg) <> ".okta.com/login/sessionCookieRedirect"
   let req = initReq { queryString = renderSimpleQuery True [ ("token", TE.encodeUtf8 tok)
-                                                           , ("redirectUrl", (TE.encodeUtf8 . T.pack) redirectUrl)
+                                                           , ("redirectUrl", TE.encodeUtf8 redirectUrl)
                                                            ]
                     , requestHeaders = [ ("Accept", "*/*")
                                        , ("User-Agent", "curl/7.43.0") -- it's important to have a user agent, returns 404 without it
@@ -126,3 +126,10 @@ parseSAMLResponseHTMLTag htmlT =
       samlResponseTag = listToMaybe $ filter (elem ("name", "SAMLResponse")) allInputTagAttributes
    in do samlTagAttrs <- samlResponseTag
          listToMaybe $ map snd $ filter (\(n,_) -> n == "value") samlTagAttrs
+
+
+
+tParseRequest :: MonadThrow m
+              => Text
+              -> m Request
+tParseRequest t = parseRequest (T.unpack t)

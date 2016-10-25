@@ -16,7 +16,6 @@ import qualified Data.HashMap.Strict as M
 import           Data.Ini
 import           Data.Maybe
 import           Data.Monoid
-import qualified Data.Text as T
 import           Network.AWS.Data.Text
 import           Network.AWS.STS
 import           System.Directory
@@ -33,7 +32,6 @@ updateAwsCreds creds = do
 
   OktaSamlConfig{..} <- getOktaSamlConfig
 
-
   !savedCreds <- liftIO $ readIniFile credsFile >>=
                    \x -> case x
                            of Left e -> error $ "Unable to read AWS credentials file from " <> credsFile <> " error: " <> e
@@ -41,7 +39,7 @@ updateAwsCreds creds = do
 
   region <- getAwsRegion
 
-  let profileSection = (T.pack . unAwsProfile) ocAwsProfile
+  let profileSection = unAwsProfile ocAwsProfile
       savedProfileConfSection = fromMaybe M.empty $ M.lookup profileSection savedCreds
 
       updatedCreds =
@@ -53,7 +51,7 @@ updateAwsCreds creds = do
                    (M.insert "aws_security_token"    (creds ^. cSessionToken)) ) savedProfileConfSection )
                  savedCreds
 
-  $(logDebug) $ T.pack $  "Writing new credentials to file " <> (show updatedCreds)
+  $(logDebug) $ "Writing new credentials to file " <> (tshow updatedCreds)
   liftIO $ writeIniFile credsFile (Ini updatedCreds)
 
 

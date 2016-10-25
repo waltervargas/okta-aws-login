@@ -17,7 +17,6 @@ import           Data.Aeson.Lens
 import qualified Data.ByteString.Lazy as LB
 import           Data.Maybe
 import           Data.Monoid
-import qualified Data.Text as T
 import           Network.AWS.Data.Text
 import           Network.AWS.ECR
 import           System.Directory
@@ -33,15 +32,15 @@ updateDockerConfig ads = do
 
   createConfFileIfDoesntExist cfName "{}"
 
-  !conf <- liftIO $ LB.readFile cfName >>= return . decode >>= return . (fromMaybe (object []))
+  !conf <- fmap ((fromMaybe (object [])) . decode) $ liftIO $ LB.readFile cfName
 
   let validAuths = catMaybes $ fmap authSection ads
       atKey k = _Object . at k
       appendAuth (pep,dauth) c = c & atKey "auths" . non (Object mempty) . atKey pep . non (Object mempty) .~ dauth
       newConf = foldr appendAuth conf validAuths
 
-  $(logDebug) $ T.pack $ "Valid docker auth data: " <> (show validAuths)
-  $(logDebug) $ T.pack $ "Updating docker conf to: " <> (show newConf)
+  $(logDebug) $ "Valid docker auth data: " <> (tshow validAuths)
+  $(logDebug) $ "Updating docker conf to: " <> (tshow newConf)
 
   liftIO $ LB.writeFile cfName (encode newConf)
 

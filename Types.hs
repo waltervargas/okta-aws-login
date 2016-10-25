@@ -49,17 +49,17 @@ newtype Password = Password { unPassword :: Text } deriving (Eq, Show)
 
 type UserCredentials = (UserName, Password)
 
-newtype MFAFactorID = MFAFactorID { unMfaFactorId :: String } deriving (Eq, Show, FromJSON, ToJSON)
+newtype MFAFactorID = MFAFactorID { unMfaFactorId :: Text } deriving (Eq, Show, FromJSON, ToJSON)
 newtype MFAPassCode = MFAPassCode { unMfaPassCode :: Text } deriving (Eq, Show, FromJSON, ToJSON)
 
 newtype OktaOrg =
-  OktaOrg { unOktaOrg :: String } deriving (Eq, Show, FromJSON, ToJSON, IsString)
+  OktaOrg { unOktaOrg :: Text } deriving (Eq, Show, FromJSON, ToJSON, IsString)
 
 newtype AWSProfile =
-  AWSProfile { unAwsProfile :: String } deriving (Eq, Show, FromJSON, ToJSON, IsString)
+  AWSProfile { unAwsProfile :: Text } deriving (Eq, Show, FromJSON, ToJSON, IsString)
 
 newtype OktaAWSAccountID =
-  OktaAWSAccountID { unOktaAwsAccountId :: String } deriving (Eq, Show, FromJSON, ToJSON, IsString)
+  OktaAWSAccountID { unOktaAwsAccountId :: Text } deriving (Eq, Show, FromJSON, ToJSON, IsString)
 
 
 data OktaSamlConfig =
@@ -78,7 +78,7 @@ $(deriveJSON (aesonPrefix snakeCase) ''AppConfig)
 
 
 -- | For readability.
-type RequestPath = String
+type RequestPath = Text
 
 -- | Result of a successful login.
 newtype SessionToken = SessionToken { unSessionToken :: Text } deriving (Eq, Show, FromJSON, ToJSON)
@@ -128,8 +128,8 @@ instance ToJSON AuthRequestMFATOTPVerify where
 -- factors, other factors are not supported for now
 data MFAFactor =
   MFAFactor { mfaId :: MFAFactorID
-            , mfaFactorType :: String
-            , mfaProvider :: String
+            , mfaFactorType :: Text
+            , mfaProvider :: Text
             } deriving (Eq, Show)
 
 $(deriveJSON (aesonPrefix camelCase) ''MFAFactor)
@@ -169,7 +169,7 @@ data OktaError =
 
 -- | To present user with choices
 data InteractiveChoce a =
-  InteractiveChoce { icKey :: String
-                   , icMessage :: String
+  InteractiveChoce { icKey :: Text
+                   , icMessage :: Text
                    , icChoice :: a
                    } deriving (Eq, Show)

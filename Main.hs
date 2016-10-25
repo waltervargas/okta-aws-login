@@ -33,7 +33,7 @@ main:: IO ()
 main = runWithArgs $ runApp $ do
   cr <- getUserCredentials
 
-  needsMfa <- refreshSession cr
+  (needsMfa, samlRole) <- refreshSession cr Nothing
 
   _ <- whileM keepReloading $ do
     $(logInfo) "Refreshed AWS session."
@@ -43,10 +43,10 @@ main = runWithArgs $ runApp $ do
     $(logInfo) "Refreshing AWS session ..."
 
     doRefresh <- if needsMfa
-                 then (askUser True "Refresh session? (y/n) >") >>= return . ((==) "y") -- if we get session from Okta first it may expire by the time user pays any attention to this, need to ask first
+                 then fmap ((==) "y") $ askUser True "Refresh session? (y/n) >" -- if we get session from Okta first it may expire by the time user pays any attention to this, need to ask first
                  else return True -- probably on a trusted network, just try to refresh
     if doRefresh
-    then refreshSession cr >>=  const (return ())
+    then fmap (const ()) $ refreshSession cr (Just samlRole) -- keep credentials and a choice of SAML role
     else return ()
 
   return ()
@@ -54,8 +54,9 @@ main = runWithArgs $ runApp $ do
 
 
 refreshSession :: UserCredentials
-               -> App Bool -- ^ whether or not MFA was needed
-refreshSession cr = do
+               -> Maybe SamlRole -- ^ user's choice of SamlRole
+               -> App (Bool, SamlRole) -- ^ whether or not MFA was needed and the choice of SAML role
+refreshSession cr maybeSr = do
   errorOrRes <- oktaAuthenticate $ AuthRequestUserCredentials cr
 
   res <- case errorOrRes
@@ -65,11 +66,13 @@ refreshSession cr = do
   -- May need to try MFA
   (mfaRequired, sessionTok) <- case res
                                  of AuthResponseSuccess st -> return (False, st)
-                                    AuthResponseMFARequired st mfas -> askForMFA st mfas >>= \t -> return (True, t)
+                                    AuthResponseMFARequired st mfas -> fmap (\t -> (True, t)) $ askForMFA st mfas
                                     AuthResponseOther e -> error $ "Unexpected Okta response: " <> (show e)
 
   saml <- getOktaAWSSaml sessionTok
-  samlRole <- chooseSamlRole (parseSamlAssertion saml)
+  samlRole <- case maybeSr
+                of Just sr -> return sr
+                   Nothing -> chooseSamlRole (parseSamlAssertion saml)
 
   (awsCreds, dockerAuths) <- awsAssumeRole saml samlRole
 
@@ -79,7 +82,7 @@ refreshSession cr = do
   $(logDebug) $ T.pack $ "Updating Docker auths from " <> (show dockerAuths)
   updateDockerConfig dockerAuths
 
-  return mfaRequired
+  return (mfaRequired, samlRole)
 
 
 askForMFA :: StateToken
@@ -94,7 +97,7 @@ askForMFA st mfas = do
                      fmap (\(nc, f@MFAFactor{..}) -> nc mfaProvider f)
                      (zip numericChoices totpMfas)
 
-  pc <- MFAPassCode <$> askUser True (T.pack ("Please enter " <> mfaProvider <> " MFA code> "))
+  pc <- MFAPassCode <$> askUser True ("Please enter " <> mfaProvider <> " MFA code> ")
 
   errorOrRes <- oktaMFAVerify $ AuthRequestMFATOTPVerify st mfaId pc
 
@@ -109,7 +112,7 @@ askForMFA st mfas = do
 chooseSamlRole :: NonEmpty SamlRole
                -> App SamlRole
 chooseSamlRole srs =
-  chooseOne $ fmap (\(nc, sr@SamlRole{..}) -> nc (T.unpack srRoleARN) sr) (NL.zip (NL.fromList numericChoices) srs)
+  chooseOne $ fmap (\(nc, sr@SamlRole{..}) -> nc srRoleARN sr) (NL.zip (NL.fromList numericChoices) srs)
 
 
 
