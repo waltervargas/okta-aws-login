@@ -52,7 +52,7 @@ updateAwsCreds creds = do
                  savedCreds
 
   $(logDebug) $ "Writing new credentials to file " <> (tshow updatedCreds)
-  liftIO $ writeIniFile credsFile (Ini updatedCreds)
+  liftIO $ writeIniFileWith (WriteIniSettings EqualsKeySeparator) credsFile (Ini updatedCreds)
 
 
 awsCredentialsFileName :: App FilePath
