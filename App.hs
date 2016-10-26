@@ -37,8 +37,10 @@ import           Data.Monoid
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import           Development.GitRev
 import           Network.AWS.Types
 import           System.Directory
+import           System.Exit
 import           System.FilePath
 import           System.IO
 import           Types
@@ -59,6 +61,8 @@ runApp :: App a
        -> Args
        -> IO a
 runApp appA args@Args{..} = do
+  when argsVersion $ die $ "Version: " <> $(gitBranch) <> "@" <> $(gitHash)
+
   samlConf <- findOktaSamlConfig args
   let llf _ ll = if argsVerbose then True else (ll >= LevelInfo)
 

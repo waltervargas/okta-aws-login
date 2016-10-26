@@ -17,6 +17,7 @@ import           Types
 
 
 data Args = Args { argsVerbose :: !Bool
+                 , argsVersion :: !Bool
                  , argsUserName :: !(Maybe UserName)
                  , argsAwsProfile :: !(Maybe AWSProfile)
                  , argsRegion :: !Region
@@ -32,6 +33,10 @@ parseArgs defConf = Args
          ( long "verbose"
         <> short 'v'
         <> help "Be verbose.")
+     <*> switch
+         ( long "version"
+        <> short 'V'
+        <> help "Print version and exit.")
      <*> (optional $ fmap (UserName . T.pack) $ strOption
          ( long "user"
         <> short 'u'
