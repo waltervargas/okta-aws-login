@@ -33,6 +33,9 @@ main:: IO ()
 main = runWithArgs $ runApp $ do
   cr <- getUserCredentials
 
+  samlConf <- getOktaSamlConfig
+  $(logInfo) $ "Using AWS profile " <> (unAwsProfile . ocAwsProfile) samlConf
+
   (needsMfa, samlRole) <- refreshSession cr Nothing
 
   _ <- whileM keepReloading $ do

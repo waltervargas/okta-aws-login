@@ -8,16 +8,22 @@ Logs in to ECS at the same time. Populates `$HOME/.aws/credentials` and `$HOME/.
 ```bash
 Login to AWS via Okta/SAML.
 
-Usage: okta-aws-login [-v|--verbose] [-u|--user ARG] [-p|--aws-profile ARG]
-                      [-r|--region ARG] [-c|--config-file ARG]
-                      [-k|--keep-reloading]
+Usage: okta-aws-login [-v|--verbose] [-V|--version] [-l|--list-profiles]
+                      [-u|--user ARG] [-p|--aws-profile ARG] [-r|--region ARG]
+                      [-c|--config-file ARG] [-k|--keep-reloading]
+  Login to AWS via Okta/SAML (source:
+  https://github.com/andreyk0/okta-aws-login) Default config file:
+  "$HOME/.okta-aws-login.json" Example config JSON:
+  {"saml":[{"org":"orgname","aws_profile":"my-aws-profile","okta_aws_account_id":"0oa1298hUiqWerSnBVpO"},{"default":true,"org":"orgname","aws_profile":"my-default-aws-profile","okta_aws_account_id":"0oa87GhDsxZaQw32571u"}]}
 
 Available options:
   -h,--help                Show this help text
   -v,--verbose             Be verbose.
+  -V,--version             Print version and exit.
+  -l,--list-profiles       List available AWS profiles and exit.
   -u,--user ARG            User name.
-  -p,--aws-profile ARG     AWS profile. Default config entry will be used if not
-                           given.
+  -p,--aws-profile ARG     AWS profile. Defaults to value of AWS_PROFILE env
+                           var, then to default config entry.
   -r,--region ARG          AWS region. (default: us-east-1)
   -c,--config-file ARG     Use alternative config
                            file. (default: "$HOME/.okta-aws-login.json")

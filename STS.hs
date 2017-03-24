@@ -33,8 +33,8 @@ awsAssumeRole :: SamlAssertion
 awsAssumeRole sa@(SamlAssertion samlAssertion) sr@SamlRole{..} = do
   v <- isVerbose
   r <- getAwsRegion
-  lgr <- liftIO $ newLogger (if v then Debug else Info) stdout
-  env <- liftIO $ newEnv r (FromKeys (AccessKey "xxx") (SecretKey "yyy")) <&> set envLogger lgr -- shouldn't need valid keys for this call
+  lgr <- newLogger (if v then Debug else Info) stdout
+  env <- newEnv (FromKeys (AccessKey "xxx") (SecretKey "yyy")) <&> (set envLogger lgr) . (set envRegion r) -- shouldn't need valid keys for this call
 
   stsCreds <- liftIO $ runResourceT . runAWST env $ do
     res <- send (assumeRoleWithSAML srRoleARN srPrincipalARN samlAssertion)
@@ -48,7 +48,7 @@ awsAssumeRole sa@(SamlAssertion samlAssertion) sr@SamlRole{..} = do
                                  ((SecretKey . TE.encodeUtf8)    (stsCreds ^. cSecretAccessKey))
                                  ((SessionToken . TE.encodeUtf8) (stsCreds ^. cSessionToken))
 
-  env2 <- liftIO $ newEnv r sessionCreds <&> set envLogger lgr
+  env2 <- newEnv sessionCreds <&> (set envLogger lgr) . (set envRegion r)
 
   ecrAuthData <- liftIO $ runResourceT . runAWST env2 $ do
     res <- send getAuthorizationToken

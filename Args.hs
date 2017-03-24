@@ -18,6 +18,7 @@ import           Types
 
 data Args = Args { argsVerbose :: !Bool
                  , argsVersion :: !Bool
+                 , argsListAwsProfiles :: !Bool
                  , argsUserName :: !(Maybe UserName)
                  , argsAwsProfile :: !(Maybe AWSProfile)
                  , argsRegion :: !Region
@@ -37,6 +38,10 @@ parseArgs defConf = Args
          ( long "version"
         <> short 'V'
         <> help "Print version and exit.")
+     <*> switch
+         ( long "list-profiles"
+        <> short 'l'
+        <> help "List available AWS profiles and exit.")
      <*> (optional $ fmap (UserName . T.pack) $ strOption
          ( long "user"
         <> short 'u'
@@ -44,7 +49,7 @@ parseArgs defConf = Args
      <*> (optional $ fmap (AWSProfile . T.pack) $ strOption
          ( long "aws-profile"
         <> short 'p'
-        <> help "AWS profile. Default config entry will be used if not given." ))
+        <> help "AWS profile. Defaults to value of AWS_PROFILE env var, then to default config entry."))
      <*> (option parseRegion
          ( long "region"
         <> short 'r'
