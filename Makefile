@@ -14,7 +14,7 @@ install:
 
 bindist:
 	mkdir -p $(TARGET)
-	stack --local-bin-path $(TARGET) install okta-aws-login
+	stack --local-bin-path $(TARGET) install $(STACK_OPTS) okta-aws-login
 	upx --best $(EXE)
 	mv $(EXE) $(DIST_EXE)
 	gpg --output $(DIST_EXE_SIG) --detach-sign $(DIST_EXE)
