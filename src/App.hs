@@ -48,7 +48,7 @@ import           Types
 
 
 newtype App a =
-  App { unApp :: ReaderT (Args, OktaSamlConfig) (LoggingT IO) a
+  App { unApp :: ReaderT (Args, NonEmpty OktaSamlConfig) (LoggingT IO) a
       } deriving ( Applicative
                  , Functor
                  , Monad
@@ -92,7 +92,7 @@ isVerbose = fmap argsVerbose getArgs
 keepReloading :: App Bool
 keepReloading = fmap argsKeepReloading getArgs
 
-getOktaSamlConfig :: App OktaSamlConfig
+getOktaSamlConfig :: App (NonEmpty OktaSamlConfig)
 getOktaSamlConfig = App $ fmap snd ask
 
 
@@ -177,21 +177,28 @@ createConfFileIfDoesntExist fp txt = do
 
 
 findOktaSamlConfig :: Args
-                   -> IO OktaSamlConfig
+                   -> IO (NonEmpty OktaSamlConfig)
 findOktaSamlConfig Args{..} = do
   appConf <- readAppConfigFile argsConfigFile
   envProf <- getEnvAWSProfile
 
-  let maybeDefProf = listToMaybe $ catMaybes [ argsAwsProfile, envProf ] -- arg first, then env
+  let defaultConfiguredProfiles = ocAwsProfile <$> NEL.filter (fromMaybe False . ocDefault) (ocSaml appConf)
 
-  let acctPredicate = case maybeDefProf
-                        of Nothing -> fromMaybe False . ocDefault
-                           Just a -> \osc -> a == ocAwsProfile osc
+       -- consider profiles in the order of preference
+      selectedProfiles = fromMaybe [] $ listToMaybe $ filter (not . null)
+                           [ argsAwsProfiles
+                           , maybeToList envProf
+                           , defaultConfiguredProfiles
+                           ]
 
-  case listToMaybe $ NEL.filter acctPredicate (ocSaml appConf)
-    of Nothing -> error $ "Please provide AWS profile or specify a default (in the config file or via an AWS_PROFILE environmental variable)." <>
+      samlConfPredicate OktaSamlConfig{..} = ocAwsProfile `elem` selectedProfiles
+
+      selectedSamlConfigs = filter samlConfPredicate (NEL.toList (ocSaml appConf))
+
+  case NEL.nonEmpty selectedSamlConfigs
+    of Nothing -> error $ "Please provide at least one AWS profile or specify default(s) (in the config file or via an AWS_PROFILE environmental variable)." <>
                           " You can re-run with -l to see the list of configured profiles."
-       Just c -> return c
+       Just cs -> return cs
 
 
 -- | Returns configured profiles, with an optional default configured profile

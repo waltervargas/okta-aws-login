@@ -56,6 +56,7 @@ executable okta-aws-login
                      , optparse-applicative
                      , tagsoup
                      , text
+                     , time
                      , transformers
                      , transformers-base
                      , unordered-containers

@@ -17,7 +17,7 @@ data Args = Args { argsVerbose :: !Bool
                  , argsVersion :: !Bool
                  , argsListAwsProfiles :: !Bool
                  , argsUserName :: !(Maybe UserName)
-                 , argsAwsProfile :: !(Maybe AWSProfile)
+                 , argsAwsProfiles :: ![AWSProfile]
                  , argsRegion :: !Region
                  , argsConfigFile :: !FilePath
                  , argsKeepReloading :: !Bool
@@ -43,7 +43,7 @@ parseArgs defConf = Args
          ( long "user"
         <> short 'u'
         <> help "User name." ))
-     <*> optional ((AWSProfile . T.pack) <$> strOption
+     <*> many ((AWSProfile . T.pack) <$> strOption
          ( long "aws-profile"
         <> short 'p'
         <> help "AWS profile. Defaults to value of AWS_PROFILE env var, then to default config entry."))

@@ -39,26 +39,28 @@ findTotpFactors = filter (\MFAFactor{..} -> mfaFactorType == "token:software:tot
 
 
 -- | Makes a request to /authn end point
-oktaAuthenticate :: AuthRequestUserCredentials
+oktaAuthenticate :: OktaOrg
+                 -> AuthRequestUserCredentials
                  -> App (Either OktaError OktaAuthResponse)
-oktaAuthenticate = oktaPost "/api/v1/authn"
+oktaAuthenticate oOrg = oktaPost oOrg "/api/v1/authn"
 
 
 -- | Makes a request to /authn end point
-oktaMFAVerify :: AuthRequestMFATOTPVerify
+oktaMFAVerify :: OktaOrg
+              -> AuthRequestMFATOTPVerify
               -> App (Either OktaError OktaAuthResponse)
-oktaMFAVerify req@(AuthRequestMFATOTPVerify _ (MFAFactorID fid) _) =
-  oktaPost ("/api/v1/authn/factors/" <> fid <> "/verify") req
+oktaMFAVerify oOrg req@(AuthRequestMFATOTPVerify _ (MFAFactorID fid) _) =
+  oktaPost oOrg ("/api/v1/authn/factors/" <> fid <> "/verify") req
 
 
 -- | Constructs a request object with given request path and mandatory headers
 oktaPost :: (ToJSON reqBody, FromJSON resBody)
-         => RequestPath
+         => OktaOrg
+         -> RequestPath
          -> reqBody
          -> App (Either OktaError resBody)
-oktaPost rp rb = do
-  OktaSamlConfig{..} <- getOktaSamlConfig
-  initReq <- tParseRequest $ "https://" <> unOktaOrg ocOrg <> ".okta.com" <> rp
+oktaPost oOrg rp rb = do
+  initReq <- tParseRequest $ "https://" <> unOktaOrg oOrg <> ".okta.com" <> rp
   let req = initReq { method = "POST"
                     , requestHeaders = [ (hContentType, "application/json")
                                        , (hAccept,      "application/json")
@@ -88,16 +90,17 @@ oktaPost rp rb = do
 -- | Gets SAML blob by executing a part of the browser request flow.
 -- There's no clean API. One needs to make a sessionCookieRedirect request
 -- to obtain 'sid' cookie and then call SAML integration page and parse HTML.
-getOktaAWSSaml :: SessionToken
+getOktaAWSSaml :: OktaOrg
+               -> OktaAWSAccountID
+               -> SessionToken
                -> App SamlAssertion
-getOktaAWSSaml (SessionToken tok) = do
-  OktaSamlConfig{..} <- getOktaSamlConfig
+getOktaAWSSaml oOrg oAccId (SessionToken tok) = do
 
   -- This HTML is expected to contain
   -- <input name="SAMLResponse" type="hidden" value="
-  let redirectUrl = "https://" <> unOktaOrg ocOrg <> ".okta.com/app/amazon_aws/" <> unOktaAwsAccountId ocOktaAwsAccountId <> "/sso/saml?onetimetoken=" <> tok
+  let redirectUrl = "https://" <> unOktaOrg oOrg <> ".okta.com/app/amazon_aws/" <> unOktaAwsAccountId oAccId <> "/sso/saml?onetimetoken=" <> tok
 
-  initReq <- tParseRequest $ "https://" <> unOktaOrg ocOrg <> ".okta.com/login/sessionCookieRedirect"
+  initReq <- tParseRequest $ "https://" <> unOktaOrg oOrg <> ".okta.com/login/sessionCookieRedirect"
   let req = initReq { queryString = renderSimpleQuery True [ ("token", TE.encodeUtf8 tok)
                                                            , ("redirectUrl", TE.encodeUtf8 redirectUrl)
                                                            ]
