@@ -1,6 +1,3 @@
-{-# LANGUAGE BangPatterns     #-}
-{-# LANGUAGE RecordWildCards  #-}
-
 module Args (
   Args(..)
 , runWithArgs
@@ -42,26 +39,26 @@ parseArgs defConf = Args
          ( long "list-profiles"
         <> short 'l'
         <> help "List available AWS profiles and exit.")
-     <*> (optional $ fmap (UserName . T.pack) $ strOption
+     <*> optional ((UserName . T.pack) <$> strOption
          ( long "user"
         <> short 'u'
         <> help "User name." ))
-     <*> (optional $ fmap (AWSProfile . T.pack) $ strOption
+     <*> optional ((AWSProfile . T.pack) <$> strOption
          ( long "aws-profile"
         <> short 'p'
         <> help "AWS profile. Defaults to value of AWS_PROFILE env var, then to default config entry."))
-     <*> (option parseRegion
+     <*> option parseRegion
          ( long "region"
         <> short 'r'
         <> value NorthVirginia
         <> showDefaultWith (T.unpack . toText)
-        <> help "AWS region." ))
-     <*> (strOption
+        <> help "AWS region." )
+     <*> strOption
          ( long "config-file"
         <> short 'c'
         <> value defConf
         <> showDefaultWith show
-        <> help "Use alternative config file." ))
+        <> help "Use alternative config file." )
      <*> switch
          ( long "keep-reloading"
         <> short 'k'
@@ -78,12 +75,12 @@ runWithArgs rwa = do
   defConfFile <- defaultConfigFileName
   execParser (opts defConfFile) >>= rwa
   where
-    opts defConf = info (helper <*> (parseArgs defConf))
+    opts defConf = info (helper <*> parseArgs defConf)
       ( fullDesc
      <> header "Login to AWS via Okta/SAML."
      <> progDesc ( "Login to AWS via Okta/SAML " <>
                    " (source: https://github.com/andreyk0/okta-aws-login) " <>
-                   " Default config file: " <> (show defConf) <>
+                   " Default config file: " <> show defConf <>
                    " Example config JSON: " <> exampleAppConfig
                  )
       )

@@ -71,7 +71,7 @@ data OktaSamlConfig =
 
 $(deriveJSON (aesonPrefix snakeCase){ omitNothingFields = True } ''OktaSamlConfig)
 
-data AppConfig = AppConfig { ocSaml:: !(NonEmpty OktaSamlConfig) }
+newtype AppConfig = AppConfig { ocSaml:: NonEmpty OktaSamlConfig }
 
 $(deriveJSON (aesonPrefix snakeCase) ''AppConfig)
 
@@ -97,7 +97,7 @@ data SamlRole =
 
 
 -- | Login with user credentials.
-data AuthRequestUserCredentials =
+newtype AuthRequestUserCredentials =
   AuthRequestUserCredentials UserCredentials deriving (Eq, Show)
 
 -- | Verify MFA code
@@ -150,7 +150,7 @@ instance FromJSON OktaAuthResponse where
        case status of
          String "SUCCESS"      -> AuthResponseSuccess <$> x .: "sessionToken"
          String "MFA_REQUIRED" -> AuthResponseMFARequired <$> x .: "stateToken" <*>
-                                    (return $ (Object x) ^.. key "_embedded" . key "factors" . values . _JSON)
+                                    return (Object x ^.. key "_embedded" . key "factors" . values . _JSON)
          _                     -> return $ AuthResponseOther v
 
 

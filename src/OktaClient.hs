@@ -41,14 +41,13 @@ findTotpFactors = filter (\MFAFactor{..} -> mfaFactorType == "token:software:tot
 -- | Makes a request to /authn end point
 oktaAuthenticate :: AuthRequestUserCredentials
                  -> App (Either OktaError OktaAuthResponse)
-oktaAuthenticate req = do
-  oktaPost "/api/v1/authn" req
+oktaAuthenticate = oktaPost "/api/v1/authn"
 
 
 -- | Makes a request to /authn end point
 oktaMFAVerify :: AuthRequestMFATOTPVerify
               -> App (Either OktaError OktaAuthResponse)
-oktaMFAVerify req@(AuthRequestMFATOTPVerify _ (MFAFactorID fid) _) = do
+oktaMFAVerify req@(AuthRequestMFATOTPVerify _ (MFAFactorID fid) _) =
   oktaPost ("/api/v1/authn/factors/" <> fid <> "/verify") req
 
 
@@ -59,7 +58,7 @@ oktaPost :: (ToJSON reqBody, FromJSON resBody)
          -> App (Either OktaError resBody)
 oktaPost rp rb = do
   OktaSamlConfig{..} <- getOktaSamlConfig
-  initReq <- tParseRequest $ "https://" <> (unOktaOrg ocOrg) <> ".okta.com" <> rp
+  initReq <- tParseRequest $ "https://" <> unOktaOrg ocOrg <> ".okta.com" <> rp
   let req = initReq { method = "POST"
                     , requestHeaders = [ (hContentType, "application/json")
                                        , (hAccept,      "application/json")
@@ -73,7 +72,7 @@ oktaPost rp rb = do
   $(logDebug) $ "Okta response: " <> tshow res
 
   let okResponse = case fromJSON (responseBody res)
-                     of Error s -> error $ "Unable to parse model from " <> (show res) <> " error: " <> s
+                     of Error s -> error $ "Unable to parse model from " <> show res <> " error: " <> s
                         Success b -> return b
 
       errResponse r = return . Left  . r $ responseBody res
@@ -96,9 +95,9 @@ getOktaAWSSaml (SessionToken tok) = do
 
   -- This HTML is expected to contain
   -- <input name="SAMLResponse" type="hidden" value="
-  let redirectUrl = "https://" <> (unOktaOrg ocOrg) <> ".okta.com/app/amazon_aws/" <> (unOktaAwsAccountId ocOktaAwsAccountId) <> "/sso/saml?onetimetoken=" <> tok
+  let redirectUrl = "https://" <> unOktaOrg ocOrg <> ".okta.com/app/amazon_aws/" <> unOktaAwsAccountId ocOktaAwsAccountId <> "/sso/saml?onetimetoken=" <> tok
 
-  initReq <- tParseRequest $ "https://" <> (unOktaOrg ocOrg) <> ".okta.com/login/sessionCookieRedirect"
+  initReq <- tParseRequest $ "https://" <> unOktaOrg ocOrg <> ".okta.com/login/sessionCookieRedirect"
   let req = initReq { queryString = renderSimpleQuery True [ ("token", TE.encodeUtf8 tok)
                                                            , ("redirectUrl", TE.encodeUtf8 redirectUrl)
                                                            ]
@@ -112,7 +111,7 @@ getOktaAWSSaml (SessionToken tok) = do
   $(logDebug) $ "Okta SAML response: " <> tshow res
 
   case parseSAMLResponseHTMLTag $ TE.decodeUtf8 . LB.toStrict . responseBody $ res
-    of Nothing -> error $ "Unable to find SAMLResponse in the output of " <> (show res)
+    of Nothing -> error $ "Unable to find SAMLResponse in the output of " <> show res
        Just x -> return $ SamlAssertion x
 
 

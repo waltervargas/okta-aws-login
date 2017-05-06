@@ -18,6 +18,7 @@ import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Lazy as LB
 import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NL
+import           Data.Maybe
 import           Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
@@ -38,7 +39,7 @@ main = runWithArgs $ runApp $ do
 
   (needsMfa, samlRole) <- refreshSession cr Nothing
 
-  _ <- whileM keepReloading $ do
+  whileM_ keepReloading $ do
     $(logInfo) "Refreshed AWS session."
 
     liftIO $ threadDelay (59 * 60 * 1000000) -- 59min, temporary token has 1h TTL
@@ -46,13 +47,9 @@ main = runWithArgs $ runApp $ do
     $(logInfo) "Refreshing AWS session ..."
 
     doRefresh <- if needsMfa
-                 then fmap ((==) "y") $ askUser True "Refresh session? (y/n) >" -- if we get session from Okta first it may expire by the time user pays any attention to this, need to ask first
+                 then ("y" ==) <$> askUser True "Refresh session? (y/n) >" -- if we get session from Okta first it may expire by the time user pays any attention to this, need to ask first
                  else return True -- probably on a trusted network, just try to refresh
-    if doRefresh
-    then fmap (const ()) $ refreshSession cr (Just samlRole) -- keep credentials and a choice of SAML role
-    else return ()
-
-  return ()
+    when doRefresh $ void $ refreshSession cr (Just samlRole) -- keep credentials and a choice of SAML role
 
 
 
@@ -63,14 +60,14 @@ refreshSession cr maybeSr = do
   errorOrRes <- oktaAuthenticate $ AuthRequestUserCredentials cr
 
   res <- case errorOrRes
-           of Left e -> error $ "Unexpected Okta response: " <> (show e) <> " please check your credentials!"
+           of Left e -> error $ "Unexpected Okta response: " <> show e <> " please check your credentials!"
               Right r -> return r
 
   -- May need to try MFA
   (mfaRequired, sessionTok) <- case res
                                  of AuthResponseSuccess st -> return (False, st)
-                                    AuthResponseMFARequired st mfas -> fmap (\t -> (True, t)) $ askForMFA st mfas
-                                    AuthResponseOther e -> error $ "Unexpected Okta response: " <> (show e)
+                                    AuthResponseMFARequired st mfas -> (\t -> (True, t)) <$> askForMFA st mfas
+                                    AuthResponseOther e -> error $ "Unexpected Okta response: " <> show e
 
   saml <- getOktaAWSSaml sessionTok
   samlRole <- case maybeSr
@@ -79,10 +76,10 @@ refreshSession cr maybeSr = do
 
   (awsCreds, dockerAuths) <- awsAssumeRole saml samlRole
 
-  $(logDebug) $ T.pack $ "Updating AWS creds from " <> (show awsCreds)
+  $(logDebug) $ T.pack $ "Updating AWS creds from " <> show awsCreds
   updateAwsCreds awsCreds
 
-  $(logDebug) $ T.pack $ "Updating Docker auths from " <> (show dockerAuths)
+  $(logDebug) $ T.pack $ "Updating Docker auths from " <> show dockerAuths
   updateDockerConfig dockerAuths
 
   return (mfaRequired, samlRole)
@@ -105,11 +102,11 @@ askForMFA st mfas = do
   errorOrRes <- oktaMFAVerify $ AuthRequestMFATOTPVerify st mfaId pc
 
   case errorOrRes
-    of Left e -> do _ <- error $ "Unexpected Okta response: " <> (show e) <> " please try again."
+    of Left e -> do _ <- error $ "Unexpected Okta response: " <> show e <> " please try again."
                     askForMFA st mfas
        Right r -> case r
                     of AuthResponseSuccess s -> return s
-                       e                     -> error $ "Unexpected Okta response: " <> (show e)
+                       e                     -> error $ "Unexpected Okta response: " <> show e
 
 
 chooseSamlRole :: NonEmpty SamlRole
@@ -131,11 +128,9 @@ parseSamlAssertion (SamlAssertion sa) =
                              (named "Attribute" . attributeIs "Name" "https://aws.amazon.com/SAML/Attributes/Role") ./
                              (named "AttributeValue" . text)
 
-      mkRole (pArn : rArn : []) = SamlRole rArn pArn
-      mkRole x = error $ "Couldn't parse SAML role ARNs from " <> (show x)
+      mkRole [pArn, rArn] = SamlRole rArn pArn
+      mkRole x = error $ "Couldn't parse SAML role ARNs from " <> show x
 
-      extractRoles = fmap mkRole $ fmap (T.splitOn ",") roles
+      extractRoles = mkRole <$> fmap (T.splitOn ",") roles
 
-   in case NL.nonEmpty extractRoles
-        of Nothing -> error $ "Sorry, couldn't extract any role ARNs from " <> (show doc)
-           Just x  -> x
+   in fromMaybe (error $ "Sorry, couldn't extract any role ARNs from " <> show doc) (NL.nonEmpty extractRoles)

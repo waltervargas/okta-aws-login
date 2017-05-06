@@ -32,15 +32,15 @@ updateDockerConfig ads = do
 
   createConfFileIfDoesntExist cfName "{}"
 
-  !conf <- fmap ((fromMaybe (object [])) . decode) $ liftIO $ LB.readFile cfName
+  !conf <- fromMaybe (object []) . decode <$> liftIO (LB.readFile cfName)
 
   let validAuths = catMaybes $ fmap authSection ads
       atKey k = _Object . at k
       appendAuth (pep,dauth) c = c & atKey "auths" . non (Object mempty) . atKey pep . non (Object mempty) .~ dauth
       newConf = foldr appendAuth conf validAuths
 
-  $(logDebug) $ "Valid docker auth data: " <> (tshow validAuths)
-  $(logDebug) $ "Updating docker conf to: " <> (tshow newConf)
+  $(logDebug) $ "Valid docker auth data: " <> tshow validAuths
+  $(logDebug) $ "Updating docker conf to: " <> tshow newConf
 
   liftIO $ LB.writeFile cfName (encode newConf)
 
@@ -50,8 +50,8 @@ authSection :: AuthorizationData
 authSection ad = do
   proxyEp <- ad ^. adProxyEndpoint
   authTok <- ad ^. adAuthorizationToken
-  return $ (proxyEp, object [ "email" A..= ("none" :: Text)
-                            , "auth"  A..= authTok ])
+  return (proxyEp, object [ "email" A..= ("none" :: Text)
+                          , "auth"  A..= authTok ])
 
 
 dockerConfFileName :: App FilePath

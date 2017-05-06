@@ -69,9 +69,9 @@ runApp appA args@Args{..} = do
     (allProfiles, defProf) <- listOktaSamlConfigProfiles args
     envProf <- getEnvAWSProfile
 
-    forM_ allProfiles $ \p -> TIO.putStrLn $ (unAwsProfile p)
-    forM_ defProf $ \p -> TIO.putStrLn $ "\nYour configured default profile is " <> (unAwsProfile p) <> "."
-    forM_ envProf $ \p -> TIO.putStrLn $ "\nYour environment is configured with " <> (unAwsProfile p) <> ", it will override your config file defaults."
+    forM_ allProfiles $ \p -> TIO.putStrLn $ unAwsProfile p
+    forM_ defProf $ \p -> TIO.putStrLn $ "\nYour configured default profile is " <> unAwsProfile p <> "."
+    forM_ envProf $ \p -> TIO.putStrLn $ "\nYour environment is configured with " <> unAwsProfile p <> ", it will override your config file defaults."
 
     when ((null . catMaybes) [envProf, defProf]) $
       TIO.putStrLn $ "\nNote that you can change your default AWS profile by exporting AWS_PROFILE environmental variable" <>
@@ -79,7 +79,7 @@ runApp appA args@Args{..} = do
 
     die ""
 
-  let llf _ ll = if argsVerbose then True else (ll >= LevelInfo)
+  let llf _ ll = argsVerbose || (ll >= LevelInfo)
 
   samlConf <- findOktaSamlConfig args
 
@@ -100,8 +100,8 @@ getUserCredentials :: App UserCredentials
 getUserCredentials = getArgs >>= \Args{..} -> do
   uName <- case argsUserName
              of Just u -> return u
-                Nothing -> UserName <$> (askUser True "User > ")
-  password <- Password <$> (askUser False "Please enter Okta password > ")
+                Nothing -> UserName <$> askUser True "User > "
+  password <- Password <$> askUser False "Please enter Okta password > "
   return (uName, password)
 
 
@@ -129,7 +129,7 @@ tshow = T.pack . show
 
 
 -- | Interactive choices with numeric string keys
-numericChoices :: [(Text -> a -> InteractiveChoce a)]
+numericChoices :: [Text -> a -> InteractiveChoce a]
 numericChoices = (InteractiveChoce . tshow) <$> ([0..] :: [Int])
 
 
@@ -153,7 +153,7 @@ chooseOne opts = do
   uc <- askUser True "Please choose> "
 
   case lookupChoice uc (NEL.toList opts)
-    of Nothing -> do liftIO $ putStrLn $ "Sorry, your choice of " <> (show uc) <> " is not available, please try again."
+    of Nothing -> do liftIO $ putStrLn $ "Sorry, your choice of " <> show uc <> " is not available, please try again."
                      chooseOne opts
        Just x -> return x
 
@@ -172,7 +172,7 @@ createConfFileIfDoesntExist fp txt = do
            TIO.writeFile fp txt
            return True)
 
-  when created $ $(logInfo) $ "Created default config " <> (T.pack fp)
+  when created $ $(logInfo) $ "Created default config " <> T.pack fp
 
 
 
@@ -185,8 +185,8 @@ findOktaSamlConfig Args{..} = do
   let maybeDefProf = listToMaybe $ catMaybes [ argsAwsProfile, envProf ] -- arg first, then env
 
   let acctPredicate = case maybeDefProf
-                        of Nothing -> (fromMaybe False) . ocDefault
-                           Just a -> \osc -> a == (ocAwsProfile osc)
+                        of Nothing -> fromMaybe False . ocDefault
+                           Just a -> \osc -> a == ocAwsProfile osc
 
   case listToMaybe $ NEL.filter acctPredicate (ocSaml appConf)
     of Nothing -> error $ "Please provide AWS profile or specify a default (in the config file or via an AWS_PROFILE environmental variable)." <>
@@ -200,9 +200,9 @@ listOktaSamlConfigProfiles :: Args
 listOktaSamlConfigProfiles Args{..} = do
   AppConfig{..} <- readAppConfigFile argsConfigFile
 
-  let isDefaultConfig = (fromMaybe False) . ocDefault
+  let isDefaultConfig = fromMaybe False . ocDefault
 
-      maybeDefaultProfile = fmap ocAwsProfile $ find isDefaultConfig ocSaml
+      maybeDefaultProfile = ocAwsProfile <$> find isDefaultConfig ocSaml
 
       allProfiles = toList $ fmap ocAwsProfile ocSaml
 

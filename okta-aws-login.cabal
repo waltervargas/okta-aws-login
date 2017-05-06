@@ -14,7 +14,7 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 executable okta-aws-login
-  hs-source-dirs:      .
+  hs-source-dirs:      src
 
   main-is:             Main.hs
 

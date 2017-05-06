@@ -34,26 +34,26 @@ awsAssumeRole sa@(SamlAssertion samlAssertion) sr@SamlRole{..} = do
   v <- isVerbose
   r <- getAwsRegion
   lgr <- newLogger (if v then Debug else Info) stdout
-  env <- newEnv (FromKeys (AccessKey "xxx") (SecretKey "yyy")) <&> (set envLogger lgr) . (set envRegion r) -- shouldn't need valid keys for this call
+  env <- newEnv (FromKeys (AccessKey "xxx") (SecretKey "yyy")) <&> set envLogger lgr . set envRegion r -- shouldn't need valid keys for this call
 
   stsCreds <- liftIO $ runResourceT . runAWST env $ do
     res <- send (assumeRoleWithSAML srRoleARN srPrincipalARN samlAssertion)
     case res ^. arwsamlrsCredentials
       of Just c -> return c
-         Nothing -> error $ "Unable to get AWS credentials for " <> (show sa) <> " " <> (show sr)
+         Nothing -> error $ "Unable to get AWS credentials for " <> show sa <> " " <> show sr
 
-  $(logDebug) $ T.pack $ "AWS credentials " <> (show stsCreds)
+  $(logDebug) $ T.pack $ "AWS credentials " <> show stsCreds
 
   let sessionCreds = FromSession ((AccessKey . TE.encodeUtf8)    (stsCreds ^. cAccessKeyId))
                                  ((SecretKey . TE.encodeUtf8)    (stsCreds ^. cSecretAccessKey))
                                  ((SessionToken . TE.encodeUtf8) (stsCreds ^. cSessionToken))
 
-  env2 <- newEnv sessionCreds <&> (set envLogger lgr) . (set envRegion r)
+  env2 <- newEnv sessionCreds <&> set envLogger lgr . set envRegion r
 
   ecrAuthData <- liftIO $ runResourceT . runAWST env2 $ do
     res <- send getAuthorizationToken
     return $ res ^. gatrsAuthorizationData
 
-  $(logDebug) $ T.pack $ "ECR auth data " <> (show ecrAuthData)
+  $(logDebug) $ T.pack $ "ECR auth data " <> show ecrAuthData
 
   return (stsCreds, ecrAuthData)

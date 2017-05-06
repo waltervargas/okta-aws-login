@@ -44,14 +44,14 @@ updateAwsCreds creds = do
 
       updatedCreds =
         M.insert profileSection
-                 (((M.insert "region"                (toText region)) .
-                   (M.insert "aws_access_key_id"     (creds ^. cAccessKeyId)) .
-                   (M.insert "aws_secret_access_key" (creds ^. cSecretAccessKey)) .
-                   (M.insert "aws_session_token"     (creds ^. cSessionToken)) .
-                   (M.insert "aws_security_token"    (creds ^. cSessionToken)) ) savedProfileConfSection )
+                 ((M.insert "region"                (toText region) .
+                   M.insert "aws_access_key_id"     (creds ^. cAccessKeyId) .
+                   M.insert "aws_secret_access_key" (creds ^. cSecretAccessKey) .
+                   M.insert "aws_session_token"     (creds ^. cSessionToken) .
+                   M.insert "aws_security_token"    (creds ^. cSessionToken) ) savedProfileConfSection )
                  savedCreds
 
-  $(logDebug) $ "Writing new credentials to file " <> (tshow updatedCreds)
+  $(logDebug) $ "Writing new credentials to file " <> tshow updatedCreds
   liftIO $ writeIniFileWith (WriteIniSettings EqualsKeySeparator) credsFile (Ini updatedCreds)
 
 
