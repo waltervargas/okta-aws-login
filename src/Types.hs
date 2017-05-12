@@ -24,8 +24,10 @@ module Types (
 , OktaSamlConfig(..)
 , Password(..)
 , RequestPath
+, SamlAccountSession(..)
 , SamlAssertion(..)
 , SamlRole(..)
+, SamlSession
 , SessionToken(..)
 , StateToken(..)
 , UserCredentials
@@ -33,15 +35,17 @@ module Types (
 ) where
 
 
-import Control.Lens ((^..))
-import Data.Aeson
-import Data.Aeson.Casing
-import Data.Aeson.Lens
-import Data.Aeson.TH
-import Data.Aeson.Types
-import Data.List.NonEmpty
-import Data.String (IsString)
-import Data.Text (Text)
+import           Control.Lens ((^..))
+import           Data.Aeson
+import           Data.Aeson.Casing
+import           Data.Aeson.Lens
+import           Data.Aeson.TH
+import           Data.Aeson.Types
+import           Data.List.NonEmpty
+import           Data.String (IsString)
+import           Data.Text (Text)
+import qualified Network.AWS.ECR as ECR
+import qualified Network.AWS.STS as STS
 
 
 newtype UserName = UserName { unUserName :: Text } deriving (Eq, Show)
@@ -49,8 +53,9 @@ newtype Password = Password { unPassword :: Text } deriving (Eq, Show)
 
 type UserCredentials = (UserName, Password)
 
-newtype MFAFactorID = MFAFactorID { unMfaFactorId :: Text } deriving (Eq, Show, FromJSON, ToJSON)
-newtype MFAPassCode = MFAPassCode { unMfaPassCode :: Text } deriving (Eq, Show, FromJSON, ToJSON)
+newtype MFAFactorID = MFAFactorID { unMfaFactorId :: Text } deriving (Eq, Show, Ord, FromJSON, ToJSON)
+newtype MFAPassCode = MFAPassCode { unMfaPassCode :: Text } deriving (Eq, Show, Ord, FromJSON, ToJSON)
+
 
 newtype OktaOrg =
   OktaOrg { unOktaOrg :: Text } deriving (Eq, Show, FromJSON, ToJSON, IsString)
@@ -85,6 +90,20 @@ newtype SessionToken = SessionToken { unSessionToken :: Text } deriving (Eq, Sho
 
 -- | Token used to chain calls when initial login was not successful.
 newtype StateToken = StateToken { unStateToken :: Text } deriving (Eq, Show, FromJSON, ToJSON)
+
+
+
+data SamlAccountSession =
+  SamlAccountSession { sasOktaOrg :: !OktaOrg
+                     , sasAwsProfile :: !AWSProfile
+                     , sasAccountID :: !OktaAWSAccountID
+                     , sasChosenSamlRole :: !(Maybe SamlRole)
+                     , sasCredentials :: !STS.Credentials
+                     , sasDockerAuths :: ![ECR.AuthorizationData]
+                     } deriving (Eq, Show)
+
+type SamlSession = [SamlAccountSession]
+
 
 -- | SAML assertion (a Base64 encoded XML doc with SAML Response)
 newtype SamlAssertion = SamlAssertion { unSamlAssertion :: Text } deriving (Eq, Show, FromJSON, ToJSON)

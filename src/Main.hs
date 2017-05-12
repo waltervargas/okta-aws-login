@@ -24,7 +24,6 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import           Data.Time.Clock
 import           DockerConfig
-import           Network.AWS.ECR
 import qualified Network.AWS.STS as STS
 import           OktaClient
 import           STS
@@ -34,53 +33,38 @@ import           Types
 
 
 
-data SamlAccountSession =
-  SamlAccountSession { sasAwsProfile :: !AWSProfile
-                     , sasAccountID :: !OktaAWSAccountID
-                     , sasChosenSamlRole :: !(Maybe SamlRole)
-                     , sasCredentials :: !STS.Credentials
-                     , sasDockerAuths :: ![AuthorizationData]
-                     } deriving (Eq, Show)
-
-data SamlOrgSession =
-  SamlOrgSession { sosOktaOrg :: !OktaOrg
-                 , sosNeedsMFA :: !Bool
-                 , sosAccountSessions :: !(NonEmpty SamlAccountSession)
-                 }
-
-
 main:: IO ()
 main = runWithArgs $ runApp $ do
   cr <- getUserCredentials
+  _ <- createInitialOrgSessions >>= setSamlSession
 
   -- First login, possibly ask user some questions
-  initialOrgSessions <- createInitialOrgSessions >>= mapM (refreshOrgSession cr)
+  _ <- updateSamlSession (refreshSamlSession cr)
 
-  whenM keepReloading $ foldM_ (\s act -> act s) initialOrgSessions
-                          (NL.repeat (refreshAllOrgSessions cr))
+  void . whenM keepReloading $ do
+    liftIO $ threadDelay (59 * 60 * 1000000) -- 59min, temporary token has 1h TTL
+
+    uMfa <- usedMFA
+
+    doRefresh <- if uMfa
+                then ("y" ==) <$> askUser True "Refresh session? (y/n) >" -- if we get session from Okta first it may expire by the time user pays any attention to this, need to ask first
+                else return True -- probably on a trusted network, just try to refresh
+
+    unless doRefresh $ error "Session refresh cancelled, exiting ..."
+    useMFA False -- reset state, network may have switched by now
+    updateSamlSession (refreshSamlSession cr)
 
 
 
-refreshAllOrgSessions :: UserCredentials
-                      -> NonEmpty SamlOrgSession
-                      -> App (NonEmpty SamlOrgSession)
-refreshAllOrgSessions cr sess = do
-  $(logInfo) "Refreshed AWS session."
-
-  liftIO $ threadDelay (59 * 60 * 1000000) -- 59min, temporary token has 1h TTL
-
+refreshSamlSession :: UserCredentials
+                   -> SamlSession
+                   -> App SamlSession
+refreshSamlSession cr sess = do
   $(logInfo) "Refreshing AWS session ..."
 
-  doRefresh <- if null $ NL.filter sosNeedsMFA sess
-               then ("y" ==) <$> askUser True "Refresh session? (y/n) >" -- if we get session from Okta first it may expire by the time user pays any attention to this, need to ask first
-               else return True -- probably on a trusted network, just try to refresh
+  allUpdatedAccountSessions <- traverse (refreshAccountSession cr) sess
 
-  unless doRefresh $ error "Session refresh cancelled, exiting ..."
-
-  updatedSessions <- mapM (refreshOrgSession cr) sess
-
-  let allUpdatedAccountSessions = concat (NL.toList . sosAccountSessions <$> NL.toList updatedSessions)
-      allUpdatedAwsCreds = (\SamlAccountSession{..} -> (sasAwsProfile, sasCredentials)) <$> allUpdatedAccountSessions
+  let allUpdatedAwsCreds = (\SamlAccountSession{..} -> (sasAwsProfile, sasCredentials)) <$> allUpdatedAccountSessions
       allUpdatedDockerAuths = concat (sasDockerAuths <$> allUpdatedAccountSessions)
 
   $(logDebug) $ T.pack $ "Updating AWS creds to " <> show allUpdatedAwsCreds
@@ -89,46 +73,41 @@ refreshAllOrgSessions cr sess = do
   $(logDebug) $ T.pack $ "Updating Docker auths to " <> show allUpdatedDockerAuths
   updateDockerConfig allUpdatedDockerAuths
 
-  return updatedSessions
+  $(logInfo) "Refreshed AWS session."
+  return allUpdatedAccountSessions
 
 
-refreshOrgSession :: UserCredentials
-                  -> SamlOrgSession
-                  -> App SamlOrgSession
-refreshOrgSession cr sos@SamlOrgSession{..} = do
-  errorOrRes <- oktaAuthenticate sosOktaOrg $ AuthRequestUserCredentials cr
+
+refreshAccountSession :: UserCredentials
+                      -> SamlAccountSession
+                      -> App SamlAccountSession
+refreshAccountSession uc sas@SamlAccountSession{..} = do
+
+  errorOrRes <- oktaAuthenticate sasOktaOrg $ AuthRequestUserCredentials uc
 
   res <- case errorOrRes
            of Left e -> error $ "Unexpected Okta response: " <> show e <> " please check your credentials!"
               Right r -> return r
 
   -- May need to try MFA
-  (mfaRequired, sessionTok) <- case res
-                                 of AuthResponseSuccess st -> return (False, st)
-                                    AuthResponseMFARequired st mfas -> (\t -> (True, t)) <$> askForMFA sosOktaOrg st mfas
-                                    AuthResponseOther e -> error $ "Unexpected Okta response: " <> show e
+  sessionTok <- case res
+                  of AuthResponseSuccess st -> return st
+                     AuthResponseMFARequired st mfas -> askForMFA sasOktaOrg st mfas
+                     AuthResponseOther e -> error $ "Unexpected Okta response: " <> show e
 
-  updatedAccountSessions <- mapM (refreshAccountSession sosOktaOrg sessionTok) sosAccountSessions
-  return $ sos { sosAccountSessions = updatedAccountSessions
-               , sosNeedsMFA = mfaRequired
-               }
-
-
-refreshAccountSession :: OktaOrg
-                      -> SessionToken
-                      -> SamlAccountSession
-                      -> App SamlAccountSession
-refreshAccountSession oOrg sTok sas@SamlAccountSession{..} = do
-  saml <- getOktaAWSSaml oOrg sasAccountID sTok
+  saml <- getOktaAWSSaml sasOktaOrg sasAccountID sessionTok
   samlRole <- case sasChosenSamlRole
                 of Just sr -> return sr
                    Nothing -> chooseSamlRole (parseSamlAssertion saml)
 
   (awsCreds, dockerAuths) <- awsAssumeRole saml samlRole
 
-  return $ sas { sasChosenSamlRole = Just samlRole
-               , sasCredentials = awsCreds
-               , sasDockerAuths = dockerAuths }
+  let updatedSession = sas { sasChosenSamlRole = Just samlRole
+                           , sasCredentials = awsCreds
+                           , sasDockerAuths = dockerAuths }
+
+  return updatedSession
+
 
 
 askForMFA :: OktaOrg
@@ -136,24 +115,31 @@ askForMFA :: OktaOrg
           -> [MFAFactor]
           -> App SessionToken
 askForMFA oOrg st mfas = do
+  -- Mark that we needed MFA in this session. When we keep reloading we need to wait until the user
+  -- is ready until acquiring state token. Otherwise it may expire by the time user reacts.
+  useMFA True
+
   let totpMfas = findTotpFactors mfas
 
   when (null totpMfas) $ error "Sorry, an MFA auth is required to continue and no TOTP factors were available. Please configure a TOTP device (e.g. a mobile Okta app) or re-try via VPN connection."
 
-  MFAFactor{..} <- chooseOne $ NL.fromList $
-                     fmap (\(nc, f@MFAFactor{..}) -> nc mfaProvider f)
-                     (zip numericChoices totpMfas)
+  (fid, pc) <- do
+    MFAFactor{..} <- chooseOne $ NL.fromList $
+                        fmap (\(nc, f@MFAFactor{..}) -> nc mfaProvider f)
+                        (zip numericChoices totpMfas)
+    pc <- MFAPassCode <$> askUser True ("Please enter " <> unOktaOrg oOrg <> " " <> mfaProvider <> " MFA code> ")
+    return (mfaId, pc)
 
-  pc <- MFAPassCode <$> askUser True ("Please enter " <> unOktaOrg oOrg <> " " <> mfaProvider <> " MFA code> ")
 
-  errorOrRes <- oktaMFAVerify oOrg $ AuthRequestMFATOTPVerify st mfaId pc
+  errorOrRes <- oktaMFAVerify oOrg $ AuthRequestMFATOTPVerify st fid pc
 
   case errorOrRes
-    of Left e -> do _ <- error $ "Unexpected Okta response: " <> show e <> " please try again."
+    of Left e -> do _ <- $(logError) $ "Unexpected Okta response: " <> tshow e <> " please try again."
                     askForMFA oOrg st mfas
        Right r -> case r
                     of AuthResponseSuccess s -> return s
                        e                     -> error $ "Unexpected Okta response: " <> show e
+
 
 
 chooseSamlRole :: NonEmpty SamlRole
@@ -185,23 +171,18 @@ parseSamlAssertion (SamlAssertion sa) =
 
 
 -- | Init session data with some defaults and dummy values
-createInitialOrgSessions :: App (NonEmpty SamlOrgSession)
+createInitialOrgSessions :: App [SamlAccountSession]
 createInitialOrgSessions = do
   now <- liftIO getCurrentTime
 
   samlConfs <- getOktaSamlConfig
   $(logInfo) $ "Using AWS profiles " <> tshow ((unAwsProfile . ocAwsProfile) <$> samlConfs)
 
-  let samlConfsByOrg = NL.groupBy (\sc1 sc2 -> ocOrg sc1 == ocOrg sc2) samlConfs
-
-      emptyCreds = STS.credentials "" "" "" now
+  let emptyCreds = STS.credentials "" "" "" now
 
       initialAccountSession OktaSamlConfig{..} =
-        SamlAccountSession ocAwsProfile ocOktaAwsAccountId Nothing emptyCreds []
+        SamlAccountSession ocOrg ocAwsProfile ocOktaAwsAccountId Nothing emptyCreds []
 
-      initialOrgSession OktaSamlConfig{..} =
-        SamlOrgSession ocOrg False
+      initialAccountSessions = initialAccountSession <$> samlConfs
 
-      initialOrgSessions = (\scs -> initialOrgSession (NL.head scs) (initialAccountSession <$> scs)) <$> samlConfsByOrg
-
-  return $ NL.fromList initialOrgSessions
+  return $ NL.toList initialAccountSessions

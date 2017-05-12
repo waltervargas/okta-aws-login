@@ -11,13 +11,18 @@ module App (
 , createConfFileIfDoesntExist
 , getAwsRegion
 , getOktaSamlConfig
+, getSamlSession
 , getUserCredentials
 , isVerbose
 , keepReloading
 , lookupChoice
 , numericChoices
 , runApp
+, setSamlSession
 , tshow
+, updateSamlSession
+, useMFA
+, usedMFA
 ) where
 
 
@@ -30,6 +35,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import           Control.Monad.Trans.Reader
 import           Data.Foldable
+import           Data.IORef
 import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NEL
 import           Data.Maybe
@@ -47,8 +53,16 @@ import           System.IO
 import           Types
 
 
+data AppState =
+  AppState { asArgs :: !Args
+           , asOktaSamlConfig :: !(NonEmpty OktaSamlConfig)
+           , asSamlSessionRef :: !(IORef SamlSession)
+           , asUsedMFA :: !(IORef Bool) -- ^ remember if we had to use MFA codes during session (as opposed to being on a trusted net)
+           }
+
+
 newtype App a =
-  App { unApp :: ReaderT (Args, NonEmpty OktaSamlConfig) (LoggingT IO) a
+  App { unApp :: ReaderT AppState (LoggingT IO) a
       } deriving ( Applicative
                  , Functor
                  , Monad
@@ -82,8 +96,12 @@ runApp appA args@Args{..} = do
   let llf _ ll = argsVerbose || (ll >= LevelInfo)
 
   samlConf <- findOktaSamlConfig args
+  samlSessRef <- newIORef []
+  usedMFARef <- newIORef False
 
-  runStderrLoggingT $ filterLogger llf $ runReaderT (unApp appA) (args, samlConf)
+  let appState = AppState args samlConf samlSessRef usedMFARef
+
+  runStderrLoggingT $ filterLogger llf $ runReaderT (unApp appA) appState
 
 
 isVerbose :: App Bool
@@ -93,7 +111,7 @@ keepReloading :: App Bool
 keepReloading = fmap argsKeepReloading getArgs
 
 getOktaSamlConfig :: App (NonEmpty OktaSamlConfig)
-getOktaSamlConfig = App $ fmap snd ask
+getOktaSamlConfig = App $ fmap asOktaSamlConfig ask
 
 
 getUserCredentials :: App UserCredentials
@@ -117,11 +135,40 @@ askUser e p = liftIO $ withEcho e $ do
 
 
 getArgs :: App Args
-getArgs = App $ fmap fst ask
+getArgs = App $ fmap asArgs ask
 
 
 getAwsRegion :: App Region
 getAwsRegion = fmap argsRegion getArgs
+
+
+getSamlSession :: App SamlSession
+getSamlSession = do
+  AppState{..} <- App ask
+  liftIO $ readIORef asSamlSessionRef
+
+setSamlSession :: SamlSession
+               -> App SamlSession
+setSamlSession s = do
+  AppState{..} <- App ask
+  liftIO $ writeIORef asSamlSessionRef s
+  return s
+
+updateSamlSession :: (SamlSession -> App SamlSession)
+                  -> App SamlSession
+updateSamlSession upS = getSamlSession >>= upS >>= setSamlSession
+
+
+usedMFA :: App Bool
+usedMFA = do
+  AppState{..} <- App ask
+  liftIO $ readIORef asUsedMFA
+
+useMFA :: Bool
+       -> App ()
+useMFA x = do
+  AppState{..} <- App ask
+  liftIO $ writeIORef asUsedMFA x
 
 
 tshow :: (Show a) => a -> Text
