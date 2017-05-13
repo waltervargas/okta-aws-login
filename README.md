@@ -30,6 +30,18 @@ Available options:
   -k,--keep-reloading      Keep reloading session token hourly (that's the max
                            TTL at the moment). This only works well on a trusted
                            network where you don't need MFA.
+
+Log in using default AWS profile, you'll be prompted for user name / password:
+
+  $ okta-aws-login
+
+Specify user name and keep reloading session:
+
+  $ okta-aws-login --user my-okta-user-name --keep-reloading
+
+Log in with more than one AWS profile:
+
+  $ okta-aws-login --user my-okta-user-name --aws-profile my-aws-profile1 --aws-profile my-aws-profile2
 ````
 
 

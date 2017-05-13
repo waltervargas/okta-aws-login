@@ -10,6 +10,7 @@ import qualified Data.Text as T
 import           Network.AWS.Data
 import           Network.AWS.Types
 import           Options.Applicative
+import qualified Text.PrettyPrint.ANSI.Leijen as PP
 import           Types
 
 
@@ -83,4 +84,17 @@ runWithArgs rwa = do
                    " Default config file: " <> show defConf <>
                    " Example config JSON: " <> exampleAppConfig
                  )
+     <> (footerDoc . Just)
+        (PP.text "Log in using default AWS profile, you'll be prompted for user name / password:"
+         PP.<+> PP.linebreak
+         PP.<$> PP.indent 2 (PP.text "$ okta-aws-login")
+         PP.<+> PP.linebreak
+         PP.<$> PP.text "Specify user name and keep reloading session:"
+         PP.<+> PP.linebreak
+         PP.<$> PP.indent 2 (PP.text "$ okta-aws-login --user my-okta-user-name --keep-reloading")
+         PP.<+> PP.linebreak
+         PP.<$> PP.text "Log in with more than one AWS profile:"
+         PP.<+> PP.linebreak
+         PP.<$> PP.indent 2 (PP.text "$ okta-aws-login --user my-okta-user-name --aws-profile my-aws-profile1 --aws-profile my-aws-profile2")
+        )
       )

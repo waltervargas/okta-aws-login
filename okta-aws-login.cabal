@@ -34,6 +34,7 @@ executable okta-aws-login
                      , amazonka-core
                      , amazonka-ecr
                      , amazonka-sts
+                     , ansi-wl-pprint
                      , base64-bytestring
                      , bytestring
                      , conduit
