@@ -9,11 +9,11 @@ module Main where
 import           AWSCredsFile
 import           App
 import           Args
-import           Control.Bool
 import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
+import           Control.Monad.Loops
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Lazy as LB
 import           Data.List.NonEmpty (NonEmpty(..))
@@ -41,7 +41,7 @@ main = runWithArgs $ runApp $ do
   -- First login, possibly ask user some questions
   _ <- updateSamlSession (refreshSamlSession cr)
 
-  void . whenM keepReloading $ do
+  whileM_ keepReloading $ do
     liftIO $ threadDelay (59 * 60 * 1000000) -- 59min, temporary token has 1h TTL
 
     uMfa <- usedMFA
