@@ -5,6 +5,8 @@ Logs in to ECS at the same time. Populates `$HOME/.aws/credentials` and `$HOME/.
 [Releases](https://github.com/gilt/okta-aws-login/releases)
 
 
+# CLI
+
 ```bash
 Login to AWS via Okta/SAML.
 
