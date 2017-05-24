@@ -8,8 +8,10 @@ DL=https://github.com/gilt/okta-aws-login/releases/download/v0.5
 DL_BIN=$DL/okta-aws-login-$(uname -s)-$(uname -m)
 TARGET=/usr/local/bin/okta-aws-login
 
-echo "Downloading binary from $DL_BIN"
-curl -L -o $TARGET $DL_BIN
+echo "Downloading binary from $DL_BIN ..."
+echo "You may be prompted for your local unix password by sudo"
+sudo curl -L -o $TARGET $DL_BIN
+
 curl -L -o /tmp/okta-aws-login.sig $DL_BIN.sig
 
 if (type gpg) ; then
@@ -22,9 +24,12 @@ else
   echo "GPG is not found on this system, continuing without signature verification, it's a good idea to install GPG and re-run the install script"
 fi
 
+echo "Making downloaded binary executable ..."
+echo "You may be prompted for your local unix password by sudo"
+sudo chmod 755 $TARGET
 
-chmod 755 $TARGET
-
+echo
+echo
 echo "Installed $TARGET"
 echo "Please make sure it's in your shell PATH"
 echo "Please download okta-aws-login.json config provided by your SAs and save it to $HOME/.okta-aws-login.json"

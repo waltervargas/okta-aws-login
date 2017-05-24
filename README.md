@@ -4,6 +4,11 @@ Logs in to ECS at the same time. Populates `$HOME/.aws/credentials` and `$HOME/.
 
 [Releases](https://github.com/gilt/okta-aws-login/releases)
 
+# Install
+
+```bash
+curl -L https://raw.githubusercontent.com/gilt/okta-aws-login/master/install | /bin/bash
+```
 
 # CLI
 
