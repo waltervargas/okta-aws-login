@@ -2,7 +2,7 @@
 
 Logs in to ECS at the same time. Populates `$HOME/.aws/credentials` and `$HOME/.docker/config.json`.
 
-[Releases](https://github.com/andreyk0/okta-aws-login/releases)
+[Releases](https://github.com/gilt/okta-aws-login/releases)
 
 
 ```bash
@@ -12,7 +12,7 @@ Usage: okta-aws-login [-v|--verbose] [-V|--version] [-l|--list-profiles]
                       [-u|--user ARG] [-p|--aws-profile ARG] [-r|--region ARG]
                       [-c|--config-file ARG] [-k|--keep-reloading]
   Login to AWS via Okta/SAML (source:
-  https://github.com/andreyk0/okta-aws-login) Default config file:
+  https://github.com/gilt/okta-aws-login) Default config file:
   "$HOME/.okta-aws-login.json" Example config JSON:
   {"saml":[{"org":"orgname","aws_profile":"my-aws-profile","okta_aws_account_id":"0oa1298hUiqWerSnBVpO"},{"default":true,"org":"orgname","aws_profile":"my-default-aws-profile","okta_aws_account_id":"0oa87GhDsxZaQw32571u"}]}
 

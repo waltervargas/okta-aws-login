@@ -80,7 +80,7 @@ runWithArgs rwa = do
       ( fullDesc
      <> header "Login to AWS via Okta/SAML."
      <> progDesc ( "Login to AWS via Okta/SAML " <>
-                   " (source: https://github.com/andreyk0/okta-aws-login) " <>
+                   " (source: https://github.com/gilt/okta-aws-login) " <>
                    " Default config file: " <> show defConf <>
                    " Example config JSON: " <> exampleAppConfig
                  )
