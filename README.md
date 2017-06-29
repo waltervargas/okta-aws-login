@@ -4,6 +4,20 @@ Logs in to ECS at the same time. Populates `$HOME/.aws/credentials` and `$HOME/.
 
 [Releases](https://github.com/gilt/okta-aws-login/releases)
 
+# Docker on macOS
+
+Note that latest docker for Mac (17.06.0-ce-mac18 (18433) as of this writing) is integrated with macOS KeyChain by default.
+Upgrade process moves all of the `$HOME/.docker/config.json` credits there once and breaks config.json integration.
+See [this issue](https://github.com/docker/for-mac/issues/1359) for more.
+
+For this to continue to work as before you need to:
+* go to Docker app preferences
+* disable `Securely store docker logins in macOS keychain` checkbox
+* quit Docker app
+* check that `$HOME/.docker/config.json` doesn't have the `"credsStore": "osxkeychain"` field (you can remove it manually).
+* start Docker app
+
+
 # Install
 
 ```bash
