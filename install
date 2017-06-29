@@ -16,7 +16,7 @@ curl -L -o /tmp/okta-aws-login.sig $DL_BIN.sig
 
 if (type gpg) ; then
   echo "Downloading GPG pub key ..."
-  gpg --keyserver keys.gnupg.net --recv-key 0x3C35F6BBA50B5999
+  gpg --keyserver hkp://ipv4.pool.sks-keyservers.net:80 --recv-key 0x3C35F6BBA50B5999
 
   echo "Verifying signature ..."
   gpg --verify /tmp/okta-aws-login.sig $TARGET || { echo "GPG signature check failed!"; exit 1; }
