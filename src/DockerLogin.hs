@@ -68,8 +68,6 @@ runDockerLoginCmd dUser dPasswd ecrEp = do
     of ExitSuccess   -> $(logInfo) $ "Successfully logged in to ECR " <> ecrEp
        ExitFailure x -> $(logError) $ "Failed to log in to ECR " <> ecrEp <> ", docer exit code: " <> tshow x
 
-  return ()
-
 
 
 -- | Decodes user / password from a base64 encoded ECR auth token
