@@ -22,6 +22,7 @@ data Args = Args { argsVerbose :: !Bool
                  , argsRegion :: !Region
                  , argsConfigFile :: !FilePath
                  , argsKeepReloading :: !Bool
+                 , argsNoECRLogin :: !Bool
                  } deriving (Show)
 
 
@@ -64,6 +65,10 @@ parseArgs defConf = Args
          ( long "keep-reloading"
         <> short 'k'
         <> help "Keep reloading session token hourly (that's the max TTL at the moment). This only works well on a trusted network where you don't need MFA.")
+     <*> switch
+         ( long "no-ecr"
+        <> short 'E'
+        <> help "Skip 'docker login' to associated ECR registry, enabled by default, requires docker binary available in the PATH.")
 
 
 parseRegion :: ReadM Region
@@ -96,5 +101,9 @@ runWithArgs rwa = do
          PP.<$> PP.text "Log in with more than one AWS profile:"
          PP.<+> PP.linebreak
          PP.<$> PP.indent 2 (PP.text "$ okta-aws-login --user my-okta-user-name --aws-profile my-aws-profile1 --aws-profile my-aws-profile2")
+         PP.<+> PP.linebreak
+         PP.<$> PP.text "Skip ECR login (if you don't care about docker and don't have it installed)"
+         PP.<+> PP.linebreak
+         PP.<$> PP.indent 2 (PP.text "$ okta-aws-login --no-ecr --user my-okta-user-name --aws-profile my-aws-profile1")
         )
       )

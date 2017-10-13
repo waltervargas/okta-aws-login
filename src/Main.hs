@@ -9,6 +9,7 @@ module Main where
 import           AWSCredsFile
 import           App
 import           Args
+import           Control.Bool
 import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -23,7 +24,7 @@ import           Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import           Data.Time.Clock
-import           DockerConfig
+import           DockerLogin
 import qualified Network.AWS.STS as STS
 import           OktaClient
 import           STS
@@ -70,8 +71,9 @@ refreshSamlSession cr sess = do
   $(logDebug) $ T.pack $ "Updating AWS creds to " <> show allUpdatedAwsCreds
   updateAwsCreds allUpdatedAwsCreds
 
-  $(logDebug) $ T.pack $ "Updating Docker auths to " <> show allUpdatedDockerAuths
-  updateDockerConfig allUpdatedDockerAuths
+  unlessM noECRLogin $ do
+    $(logDebug) $ T.pack $ "Updating Docker auths to " <> show allUpdatedDockerAuths
+    dockerLogin allUpdatedDockerAuths
 
   $(logInfo) "Refreshed AWS session."
   return allUpdatedAccountSessions

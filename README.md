@@ -1,21 +1,8 @@
 # Login to AWS account via Okta (SAML) from the command line
 
-Logs in to ECS at the same time. Populates `$HOME/.aws/credentials` and `$HOME/.docker/config.json`.
+Logs in to [AWS ECR](https://aws.amazon.com/ecr/) at the same time. Populates `$HOME/.aws/credentials` and runs `docker login` with temporary ECR credentials.
 
 [Releases](https://github.com/gilt/okta-aws-login/releases)
-
-# Docker on macOS
-
-Note that latest docker for Mac (17.06.0-ce-mac18 (18433) as of this writing) is integrated with macOS KeyChain by default.
-Upgrade process moves all of the `$HOME/.docker/config.json` credits there once and breaks config.json integration.
-See [this issue](https://github.com/docker/for-mac/issues/1359) for more.
-
-For this to continue to work as before you need to:
-* go to Docker app preferences
-* disable `Securely store docker logins in macOS keychain` checkbox
-* quit Docker app
-* check that `$HOME/.docker/config.json` doesn't have the `"credsStore": "osxkeychain"` field (you can remove it manually).
-* start Docker app
 
 
 # Install
@@ -31,10 +18,10 @@ Login to AWS via Okta/SAML.
 
 Usage: okta-aws-login [-v|--verbose] [-V|--version] [-l|--list-profiles]
                       [-u|--user ARG] [-p|--aws-profile ARG] [-r|--region ARG]
-                      [-c|--config-file ARG] [-k|--keep-reloading]
-  Login to AWS via Okta/SAML (source:
-  https://github.com/gilt/okta-aws-login) Default config file:
-  "$HOME/.okta-aws-login.json" Example config JSON:
+                      [-c|--config-file ARG] [-k|--keep-reloading] [-E|--no-ecr]
+  Login to AWS via Okta/SAML (source: https://github.com/gilt/okta-aws-login)
+  Default config file: "$HOME/.okta-aws-login.json" Example config
+  JSON:
   {"saml":[{"org":"orgname","aws_profile":"my-aws-profile","okta_aws_account_id":"0oa1298hUiqWerSnBVpO"},{"default":true,"org":"orgname","aws_profile":"my-default-aws-profile","okta_aws_account_id":"0oa87GhDsxZaQw32571u"}]}
 
 Available options:
@@ -51,6 +38,9 @@ Available options:
   -k,--keep-reloading      Keep reloading session token hourly (that's the max
                            TTL at the moment). This only works well on a trusted
                            network where you don't need MFA.
+  -E,--no-ecr              Skip 'docker login' to associated ECR registry,
+                           enabled by default, requires docker binary available
+                           in the PATH.
 
 Log in using default AWS profile, you'll be prompted for user name / password:
 
@@ -63,6 +53,10 @@ Specify user name and keep reloading session:
 Log in with more than one AWS profile:
 
   $ okta-aws-login --user my-okta-user-name --aws-profile my-aws-profile1 --aws-profile my-aws-profile2
+
+Skip ECR login (if you don't care about docker and don't have it installed)
+
+  $ okta-aws-login --no-ecr --user my-okta-user-name --aws-profile my-aws-profile1
 ````
 
 

@@ -22,7 +22,7 @@ executable okta-aws-login
                        AWSCredsFile
                        AppConfig
                        Args
-                       DockerConfig
+                       DockerLogin
                        OktaClient
                        STS
                        Types
@@ -55,8 +55,10 @@ executable okta-aws-login
                      , monad-logger
                      , monad-loops
                      , optparse-applicative
+                     , process
                      , tagsoup
                      , text
+                     , text-conversions
                      , time
                      , transformers
                      , transformers-base
