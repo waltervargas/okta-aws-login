@@ -19,7 +19,11 @@ if (type gpg) ; then
   curl -L -o /tmp/okta-aws-login-pub-keyring.gpg https://raw.githubusercontent.com/gilt/okta-aws-login/master/pubkeyring.gpg
 
   echo "Verifying signature ..."
-  gpg --no-default-keyring --keyring /tmp/okta-aws-login-pub-keyring.gpg --verify /tmp/okta-aws-login.sig $TARGET || { echo "GPG signature check failed!"; exit 1; }
+  gpg --no-default-keyring --keyring /tmp/okta-aws-login-pub-keyring.gpg --verify /tmp/okta-aws-login.sig $TARGET || {
+    echo "GPG signature check failed!";
+    rm -f $TARGET
+    exit 1;
+  }
 else
   echo "GPG is not found on this system, continuing without signature verification, it's a good idea to install GPG and re-run the install script"
 fi
