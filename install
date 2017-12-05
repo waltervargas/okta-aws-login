@@ -25,11 +25,41 @@ if [ -z "$GPG" ] ; then
   echo "GPG is not found on this system, continuing without signature verification, it's a good idea to install GPG and re-run the install script"
 else
   echo "Using $(which $GPG)"
-  echo "Downloading GPG pub keyring ..."
-  curl -L -o /tmp/okta-aws-login-pub-keyring.gpg https://raw.githubusercontent.com/gilt/okta-aws-login/master/pubkeyring.gpg
 
   echo "Verifying signature ..."
-  $GPG --no-default-keyring --keyring /tmp/okta-aws-login-pub-keyring.gpg --verify /tmp/okta-aws-login.sig $TARGET || {
+  $GPG --list-keys 246B104427ED6E2401318FDA3C35F6BBA50B5999 || $GPG --import <<_K_
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+mQENBFNRd2IBCADSc3uX28L5uTucEhLiCdSNk9TahYCduN1UY8Lq1wFDXh2WYHPQ
+bHUVWk1cgst5w1EVUIjTLOu3cFKhBHhO14rzDYnsx1EcQDDL9F/9MCU84VN3IFRL
+++/CHdyHxPjS3kVCVvQjrkUJ9OTaIqCMBX6sQdQXqqsBHMEfKhDBbiLrw7d64py6
+0VZHH6LRPewQ7WZvA/P6yPBPd4ZEUoDj30ciOXzOhzEUSnUJARGo1bngo0izc/8Y
+8R4+9xs3muq14uzTCWzWjjNXskV4Fmhkxih5erxTWKNMAtWSQvQ4otocUKm3+Tka
+B+2+ikORixyg1Owo0qi71a/ripkgdW55/BpXABEBAAG0JkFuZHJleSBLYXJ0YXNo
+b3YgPGFrYXJ0YXNob3ZAZ2lsdC5jb20+iQE4BBMBAgAiBQJTUXdiAhsDBgsJCAcD
+AgYVCAIJCgsEFgIDAQIeAQIXgAAKCRA8Nfa7pQtZmXuAB/92Oj0A0+ONsTcvODoK
+S9qMV2psSeGmCbjyM7OH1P+e/UkVQ1S19ruWN4m29YxPN6zL9WWTMPpa0xV4iItg
+0lozEl5JFdHvx6/pb5hlnXz93XnAtWsThhgImRxEg9nVOIu7OudHCbTAZpO/80dD
+KmikUfwDuZFMGB4kODs8lKBmf91D5P8ssqJt9rNZjGwghex91fswvRzn/gHVYwSR
+EpQP7Ah8J/XWzIYk7lVexAfdo3B5TNZLZzTorI3IGY8PfAAt0MA6VrVY/Kr37MBz
+gt2gLJcZxIRzw5WL3p0+h8an+3IU7zlEkMq5Rl5txjChaLokvPH/R05I9VhRr0ZU
+dagYuQENBFNRd2IBCADiFyBfwC8ahKliF+vO5s9SMEYHH/jDw7VnAFP4u7AyqcgT
+ter6nIpcAFKAiso4z4uGTkahvVQg7BtouqDLDy/oAdTg1o0YjTcew8lV7NXy+DRA
+cQGXOfPzLJF+yqRhadN4Lkf8YR2YSncbq41FS0hWJsPxstIPRl8lV3ajahOWeMbK
+9s9d/kVnkpv7NeFXz3uDuP0WReQaZMbb1UOM8YpPph1hzPOgK8l/VcbvwaEV1Z50
+IEbxFYUYnmqteKlEDMHk6HttCJ+/EIISkywQ7fHkdd6Z48875TO34QRZbrZeMf3W
+2hYVmUFE8KDIYQMvYKe8Zxeep7MjIvqQG74s64HFABEBAAGJAR8EGAECAAkFAlNR
+d2ICGwwACgkQPDX2u6ULWZkshAgAtsTdzjgdKI6a3ak4bLj2/hNgVMYn9yqP6NPU
+rAUxRucjjgKilOzx8gawND2kI06yjy74NbGBi9opcI4alxK2kRKSib9DP6GhRIdl
+mVuyBFuv36iU+8kJRnVrmugmmAJkImGiZNZCCmgqk6a6gML7C2vYYqNu6HbmGBOs
+lRSFg/HeRQRHHLtwy7z2bBYARx35Fo/akt7oMZpwUWh2KITYylF5k1FNk8/OeWWx
+zuDxtI2BHMZe995cBkWton0E6mFUzqQKsybbKLK5u5xaOPrSWFLhu+hiJndWCGTe
+oyvIiXm8p+6nEhGB/Wkh7A1/uBW588Pk35WwIkBaf97Nr/s6Jg==
+=+ekY
+-----END PGP PUBLIC KEY BLOCK-----
+_K_
+
+  $GPG --verify /tmp/okta-aws-login.sig $TARGET || {
     echo "GPG signature check failed!";
     rm -f $TARGET
     exit 1;
