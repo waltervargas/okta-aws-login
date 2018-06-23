@@ -40,7 +40,6 @@ import           Data.IORef
 import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NEL
 import           Data.Maybe
-import           Data.Monoid
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -181,7 +180,7 @@ tshow = T.pack . show
 
 -- | Interactive choices with numeric string keys
 numericChoices :: [Text -> a -> InteractiveChoce a]
-numericChoices = (InteractiveChoce . tshow) <$> ([0..] :: [Int])
+numericChoices = InteractiveChoce . tshow <$> ([0..] :: [Int])
 
 
 -- | Lookup chosen value by key
@@ -269,9 +268,7 @@ listOktaSamlConfigProfiles Args{..} = do
 
 -- | Looks up AWS_PROFILE env var
 getEnvAWSProfile :: IO (Maybe AWSProfile)
-getEnvAWSProfile = do
-  aP <- lookupEnv "AWS_PROFILE"
-  return $ fmap (AWSProfile . T.pack) aP
+getEnvAWSProfile = fmap (AWSProfile . T.pack) <$> lookupEnv "AWS_PROFILE"
 
 
 -- | Control terminal echo, flush stdin, for user interaction

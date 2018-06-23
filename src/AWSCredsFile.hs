@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns       #-}
+{-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RecordWildCards    #-}
 {-# LANGUAGE TemplateHaskell    #-}
@@ -9,23 +10,20 @@ module AWSCredsFile (
 
 
 import           App
-import           Control.Lens
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import           Data.Foldable
 import qualified Data.HashMap.Strict as M
 import           Data.Ini
 import           Data.Maybe
-import           Data.Monoid
 import           Network.AWS.Data.Text
-import           Network.AWS.STS
 import           Network.AWS.Types
 import           System.Directory
 import           System.FilePath
 import           Types
 
 
-updateAwsCreds :: [(AWSProfile, Credentials)]
+updateAwsCreds :: [(AWSProfile, SamlAWSCredentials)]
                -> App ()
 updateAwsCreds pCreds = do
   credsFile <- awsCredentialsFileName
@@ -33,9 +31,8 @@ updateAwsCreds pCreds = do
   createConfFileIfDoesntExist credsFile "[default]"
 
   !savedCreds <- liftIO $ readIniFile credsFile >>=
-                   \x -> case x
-                           of Left e -> error $ "Unable to read AWS credentials file from " <> credsFile <> " error: " <> e
-                              Right c -> return c
+                   \case Left e -> error $ "Unable to read AWS credentials file from " <> credsFile <> " error: " <> e
+                         Right c -> return c
 
   region <- getAwsRegion
 
@@ -54,16 +51,16 @@ awsCredentialsFileName = liftIO $ do
 
 updateProfileCredentials :: Region
                          -> AWSProfile
-                         -> Credentials
+                         -> SamlAWSCredentials
                          -> Ini
                          -> Ini
-updateProfileCredentials region awsProf creds awsIni =
+updateProfileCredentials region awsProf SamlAWSCredentials{..} awsIni =
   let profileSection = unAwsProfile awsProf
       savedProfileConfSection = fromMaybe M.empty $ M.lookup profileSection (unIni awsIni)
 
    in Ini $ M.insert profileSection
               ((M.insert "region"                (toText region) .
-                M.insert "aws_access_key_id"     (creds ^. cAccessKeyId) .
-                M.insert "aws_secret_access_key" (creds ^. cSecretAccessKey) .
-                M.insert "aws_session_token"     (creds ^. cSessionToken) .
-                M.insert "aws_security_token"    (creds ^. cSessionToken) ) savedProfileConfSection ) (unIni awsIni)
+                M.insert "aws_access_key_id"     (toText sacAuthAccess) .
+                M.insert "aws_secret_access_key" (toText sacAuthSecret) .
+                M.insert "aws_session_token"     (toText sacAuthToken) .
+                M.insert "aws_security_token"    (toText sacAuthToken) ) savedProfileConfSection ) (unIni awsIni)

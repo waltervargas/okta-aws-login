@@ -11,25 +11,20 @@ module STS (
   awsAssumeRole
 ) where
 
-
-
 import           App
 import           Control.Lens
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import           Control.Monad.Trans.AWS
-import           Data.Monoid
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
 import           Network.AWS.ECR
 import           Network.AWS.STS
 import           System.IO
 import           Types hiding (SessionToken)
 
-
 awsAssumeRole :: SamlAssertion
               -> SamlRole
-              -> App (Network.AWS.STS.Credentials, [AuthorizationData])
+              -> App (SamlAWSCredentials, [AuthorizationData])
 awsAssumeRole sa@(SamlAssertion samlAssertion) sr@SamlRole{..} = do
   v <- isVerbose
   r <- getAwsRegion
@@ -44,9 +39,13 @@ awsAssumeRole sa@(SamlAssertion samlAssertion) sr@SamlRole{..} = do
 
   $(logDebug) $ T.pack $ "AWS credentials " <> show stsCreds
 
-  let sessionCreds = FromSession ((AccessKey . TE.encodeUtf8)    (stsCreds ^. cAccessKeyId))
-                                 ((SecretKey . TE.encodeUtf8)    (stsCreds ^. cSecretAccessKey))
-                                 ((SessionToken . TE.encodeUtf8) (stsCreds ^. cSessionToken))
+  sessTok <- case stsCreds ^. sessionToken
+               of Just t -> return t
+                  Nothing -> error $ "Unable to get AWS session token for " <> show sa <> " " <> show sr
+
+  let sessionCreds = FromSession (stsCreds ^. accessKeyId)
+                                 (stsCreds ^. secretAccessKey)
+                                 sessTok
 
   env2 <- newEnv sessionCreds <&> set envLogger lgr . set envRegion r
 
@@ -56,4 +55,8 @@ awsAssumeRole sa@(SamlAssertion samlAssertion) sr@SamlRole{..} = do
 
   $(logDebug) $ T.pack $ "ECR auth data " <> show ecrAuthData
 
-  return (stsCreds, ecrAuthData)
+  let sawsc = SamlAWSCredentials (stsCreds ^. accessKeyId)
+                                 (stsCreds ^. secretAccessKey)
+                                 sessTok
+
+  return (sawsc, ecrAuthData)

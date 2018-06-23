@@ -22,7 +22,6 @@ import           Control.Monad.Logger
 import           Data.Aeson
 import qualified Data.ByteString.Lazy as LB
 import           Data.Maybe
-import           Data.Monoid
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE

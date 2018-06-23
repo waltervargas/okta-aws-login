@@ -20,12 +20,9 @@ import qualified Data.ByteString.Lazy as LB
 import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NL
 import           Data.Maybe
-import           Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import           Data.Time.Clock
 import           DockerLogin
-import qualified Network.AWS.STS as STS
 import           OktaClient
 import           STS
 import           Text.XML
@@ -65,7 +62,7 @@ refreshSamlSession cr sess = do
 
   allUpdatedAccountSessions <- traverse (refreshAccountSession cr) sess
 
-  let allUpdatedAwsCreds = (\SamlAccountSession{..} -> (sasAwsProfile, sasCredentials)) <$> allUpdatedAccountSessions
+  let allUpdatedAwsCreds = (\SamlAccountSession{..} -> (sasAwsProfile, sasAwsCredentials)) <$> allUpdatedAccountSessions
       allUpdatedDockerAuths = concat (sasDockerAuths <$> allUpdatedAccountSessions)
 
   $(logDebug) $ T.pack $ "Updating AWS creds to " <> show allUpdatedAwsCreds
@@ -105,7 +102,7 @@ refreshAccountSession uc sas@SamlAccountSession{..} = do
   (awsCreds, dockerAuths) <- awsAssumeRole saml samlRole
 
   let updatedSession = sas { sasChosenSamlRole = Just samlRole
-                           , sasCredentials = awsCreds
+                           , sasAwsCredentials = awsCreds
                            , sasDockerAuths = dockerAuths }
 
   return updatedSession
@@ -175,12 +172,10 @@ parseSamlAssertion (SamlAssertion sa) =
 -- | Init session data with some defaults and dummy values
 createInitialOrgSessions :: App [SamlAccountSession]
 createInitialOrgSessions = do
-  now <- liftIO getCurrentTime
-
   samlConfs <- getOktaSamlConfig
-  $(logInfo) $ "Using AWS profiles " <> tshow ((unAwsProfile . ocAwsProfile) <$> samlConfs)
+  $(logInfo) $ "Using AWS profiles " <> tshow (unAwsProfile . ocAwsProfile <$> samlConfs)
 
-  let emptyCreds = STS.credentials "" "" "" now
+  let emptyCreds = SamlAWSCredentials "" "" ""
 
       initialAccountSession OktaSamlConfig{..} =
         SamlAccountSession ocOrg ocAwsProfile ocOktaAwsAccountId Nothing emptyCreds []

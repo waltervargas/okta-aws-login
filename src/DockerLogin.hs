@@ -15,7 +15,6 @@ import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import qualified Data.ByteString.Lazy as LB
-import           Data.Monoid
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Conversions

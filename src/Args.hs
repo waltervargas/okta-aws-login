@@ -5,7 +5,6 @@ module Args (
 
 
 import           AppConfig
-import           Data.Monoid
 import qualified Data.Text as T
 import           Network.AWS.Data
 import           Network.AWS.Types
@@ -41,11 +40,11 @@ parseArgs defConf = Args
          ( long "list-profiles"
         <> short 'l'
         <> help "List available AWS profiles and exit.")
-     <*> optional ((UserName . T.pack) <$> strOption
+     <*> optional (UserName . T.pack <$> strOption
          ( long "user"
         <> short 'u'
         <> help "User name." ))
-     <*> many ((AWSProfile . T.pack) <$> strOption
+     <*> many (AWSProfile . T.pack <$> strOption
          ( long "aws-profile"
         <> short 'p'
         <> help "AWS profile. Defaults to value of AWS_PROFILE env var, then to default config entry."))
