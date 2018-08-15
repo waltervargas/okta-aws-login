@@ -16,7 +16,7 @@ module App (
 , isVerbose
 , keepReloading
 , lookupChoice
-, noECRLogin
+, doECRLogin
 , numericChoices
 , runApp
 , setSamlSession
@@ -110,8 +110,8 @@ isVerbose = fmap argsVerbose getArgs
 keepReloading :: App Bool
 keepReloading = fmap argsKeepReloading getArgs
 
-noECRLogin :: App Bool
-noECRLogin = fmap argsNoECRLogin getArgs
+doECRLogin :: App Bool
+doECRLogin = fmap (not . argsNoECRLogin) getArgs
 
 getOktaSamlConfig :: App (NonEmpty OktaSamlConfig)
 getOktaSamlConfig = App $ fmap asOktaSamlConfig ask

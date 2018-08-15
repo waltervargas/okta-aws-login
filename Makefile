@@ -3,11 +3,16 @@ EXE=$(TARGET)/okta-aws-login
 DIST_EXE=$(EXE)-$(shell uname -s)-$(shell uname -m)
 DIST_EXE_SIG=$(DIST_EXE).sig
 
+default: build lint
+
 build:
 	stack build okta-aws-login
 
 build-prof:
 	stack build --profile --ghc-options="-rtsopts" okta-aws-login
+
+lint:
+	hlint `find src -type f -name '*.hs'`
 
 install:
 	stack install okta-aws-login
@@ -23,12 +28,14 @@ clean:
 	stack clean
 	rm -rf target
 
-tags:
-	hasktags-generate .
+hoogle:
+	stack hoogle --server
 
-sources:
-	stack-unpack-dependencies
-
-
-.PHONY: build build-prof clean tags sources
-
+.PHONY: \
+	build \
+	build-prof \
+	clean \
+	default \
+	hoogle \
+	lint \
+	test \

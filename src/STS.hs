@@ -1,5 +1,3 @@
-{-# LANGUAGE BangPatterns               #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE TemplateHaskell            #-}
@@ -12,6 +10,7 @@ module STS (
 ) where
 
 import           App
+import           Control.Bool (whenM)
 import           Control.Lens
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
@@ -22,14 +21,12 @@ import           Network.AWS.STS
 import           System.IO
 import           Types hiding (SessionToken)
 
+
 awsAssumeRole :: SamlAssertion
               -> SamlRole
               -> App (SamlAWSCredentials, [AuthorizationData])
 awsAssumeRole sa@(SamlAssertion samlAssertion) sr@SamlRole{..} = do
-  v <- isVerbose
-  r <- getAwsRegion
-  lgr <- newLogger (if v then Debug else Info) stdout
-  env <- newEnv (FromKeys (AccessKey "xxx") (SecretKey "yyy")) <&> set envLogger lgr . set envRegion r -- shouldn't need valid keys for this call
+  env <- newEnv (FromKeys (AccessKey "xxx") (SecretKey "yyy")) >>= configureEnvironment -- shouldn't need valid keys for this call
 
   stsCreds <- liftIO $ runResourceT . runAWST env $ do
     res <- send (assumeRoleWithSAML srRoleARN srPrincipalARN samlAssertion)
@@ -47,12 +44,7 @@ awsAssumeRole sa@(SamlAssertion samlAssertion) sr@SamlRole{..} = do
                                  (stsCreds ^. secretAccessKey)
                                  sessTok
 
-  env2 <- newEnv sessionCreds <&> set envLogger lgr . set envRegion r
-
-  ecrAuthData <- liftIO $ runResourceT . runAWST env2 $ do
-    res <- send getAuthorizationToken
-    return $ res ^. gatrsAuthorizationData
-
+  ecrAuthData <- whenM doECRLogin (getEcrAuthData sessionCreds)
   $(logDebug) $ T.pack $ "ECR auth data " <> show ecrAuthData
 
   let sawsc = SamlAWSCredentials (stsCreds ^. accessKeyId)
@@ -60,3 +52,20 @@ awsAssumeRole sa@(SamlAssertion samlAssertion) sr@SamlRole{..} = do
                                  sessTok
 
   return (sawsc, ecrAuthData)
+
+
+getEcrAuthData :: Credentials -> App [AuthorizationData]
+getEcrAuthData sessionCreds = do
+  env <- newEnv sessionCreds >>= configureEnvironment
+
+  liftIO $ runResourceT . runAWST env $ do
+    res <- send getAuthorizationToken
+    return $ res ^. gatrsAuthorizationData
+
+
+configureEnvironment :: Env -> App Env
+configureEnvironment e = do
+  v <- isVerbose
+  r <- getAwsRegion
+  lgr <- newLogger (if v then Debug else Info) stdout
+  return $ e & set envLogger lgr . set envRegion r

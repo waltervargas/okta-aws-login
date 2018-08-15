@@ -9,7 +9,6 @@ module Main where
 import           AWSCredsFile
 import           App
 import           Args
-import           Control.Bool
 import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -68,7 +67,7 @@ refreshSamlSession cr sess = do
   $(logDebug) $ T.pack $ "Updating AWS creds to " <> show allUpdatedAwsCreds
   updateAwsCreds allUpdatedAwsCreds
 
-  unlessM noECRLogin $ do
+  unless (null allUpdatedDockerAuths) $ do
     $(logDebug) $ T.pack $ "Updating Docker auths to " <> show allUpdatedDockerAuths
     dockerLogin allUpdatedDockerAuths
 
