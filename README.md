@@ -30,7 +30,6 @@ Available options:
   -V,--version             Print version and exit.
   -l,--list-profiles       List available AWS profiles and exit.
   -u,--user ARG            User name.
-  -P,--password ARG        Password
   -p,--aws-profile ARG     AWS profile. Defaults to value of AWS_PROFILE env
                            var, then to default config entry.
   -r,--region ARG          AWS region. (default: us-east-1)
