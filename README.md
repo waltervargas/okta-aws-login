@@ -83,7 +83,10 @@ You need a `$HOME/.okta-aws-login.json` config file with list of profiles and as
 
 # Development
 
-To build it from source you need [haskell stack](https://docs.haskellstack.org/en/stable/README/)
+To build it from source you need [haskell stack](https://docs.haskellstack.org/en/stable/README/).
+While not strictly required, `Makefile` tries to compress generated binaries with [upx](https://upx.github.io/) (`brew install upx`).
+Optionally you also need [hlint](https://github.com/ndmitchell/hlint) (`stack install hlint`).
+
 
 Okta [API](http://developer.okta.com/docs/api/resources/authn.html).
 

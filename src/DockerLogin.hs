@@ -15,7 +15,6 @@ import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import qualified Data.ByteString.Lazy as LB
-import           Data.Monoid
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Conversions
@@ -66,7 +65,7 @@ runDockerLoginCmd dUser dPasswd ecrEp = do
 
   case ec
     of ExitSuccess   -> $(logInfo) $ "Successfully logged in to ECR " <> ecrEp
-       ExitFailure x -> $(logError) $ "Failed to log in to ECR " <> ecrEp <> ", docer exit code: " <> tshow x
+       ExitFailure x -> $(logError) $ "Failed to log in to ECR " <> ecrEp <> ", docker exit code: " <> tshow x
 
 
 

@@ -13,7 +13,6 @@ import           Data.Aeson
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Lazy.UTF8 as U8
 import           Data.List.NonEmpty
-import           Data.Monoid
 import           System.Directory
 import           System.FilePath
 import           Types

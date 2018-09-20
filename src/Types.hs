@@ -26,6 +26,7 @@ module Types (
 , RequestPath
 , SamlAccountSession(..)
 , SamlAssertion(..)
+, SamlAWSCredentials(..)
 , SamlRole(..)
 , SamlSession
 , SessionToken(..)
@@ -44,8 +45,9 @@ import           Data.Aeson.Types
 import           Data.List.NonEmpty
 import           Data.String (IsString)
 import           Data.Text (Text)
+import qualified Network.AWS.Data.ByteString as AWSBS
 import qualified Network.AWS.ECR as ECR
-import qualified Network.AWS.STS as STS
+import qualified Network.AWS.Types as AWST
 
 
 newtype UserName = UserName { unUserName :: Text } deriving (Eq, Show)
@@ -91,14 +93,25 @@ newtype SessionToken = SessionToken { unSessionToken :: Text } deriving (Eq, Sho
 -- | Token used to chain calls when initial login was not successful.
 newtype StateToken = StateToken { unStateToken :: Text } deriving (Eq, Show, FromJSON, ToJSON)
 
+-- | AWS secrets we get from a SAML assertion
+data SamlAWSCredentials =
+  SamlAWSCredentials { sacAuthAccess :: !AWST.AccessKey
+                     , sacAuthSecret :: !AWST.SecretKey
+                     , sacAuthToken  :: !AWST.SessionToken
+                     } deriving Eq
 
+instance Show SamlAWSCredentials where
+    show SamlAWSCredentials{..} = "SamlAWSCredentials{ sacAuthAccess = \"" <> show sacAuthAccess <>
+                                                  "\", sacAuthSecret = \"" <> (show . AWSBS.toBS) sacAuthSecret <>
+                                                  "\", sacAuthToken = \"" <> (show . AWSBS.toBS) sacAuthToken <>
+                                                  "\" }"
 
 data SamlAccountSession =
   SamlAccountSession { sasOktaOrg :: !OktaOrg
                      , sasAwsProfile :: !AWSProfile
                      , sasAccountID :: !OktaAWSAccountID
                      , sasChosenSamlRole :: !(Maybe SamlRole)
-                     , sasCredentials :: !STS.Credentials
+                     , sasAwsCredentials :: !SamlAWSCredentials
                      , sasDockerAuths :: ![ECR.AuthorizationData]
                      } deriving (Eq, Show)
 
