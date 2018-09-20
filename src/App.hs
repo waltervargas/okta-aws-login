@@ -123,7 +123,9 @@ getUserCredentials = getArgs >>= \Args{..} -> do
   uName <- case argsUserName
              of Just u -> return u
                 Nothing -> UserName <$> askUser True "User > "
-  password <- Password <$> askUser False "Please enter Okta password > "
+  password <- case argsPassword
+             of Just p -> return p
+                Nothing -> Password <$> askUser False "Please enter Okta password > "
   return (uName, password)
 
 
