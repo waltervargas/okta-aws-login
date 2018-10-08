@@ -11,21 +11,52 @@ Logs in to [AWS ECR](https://aws.amazon.com/ecr/) at the same time. Populates `$
 curl -L https://raw.githubusercontent.com/gilt/okta-aws-login/master/install | /bin/bash
 ```
 
+Initially this tool needs to be configured, you need to know:
+   - Okta "embed" link for your AWS account
+   - Max session duration for the AWS roles you are allowed to assume via SAML
+
+Your system administrators should be able to provide both of these.
+
+
+Example configuration (assuming you are allowed to have 12h sessions):
+```bash
+$ okta-aws-login  --configure --okta-embed-link https://YOURSITE.okta.com/home/amazon_aws/xxxxxxxxxxxxxxxxxxxx/yyy --aws-profile production --default --ecr --session-duration 43200
+```
+
+
 # CLI
 
 ```bash
+$ okta-aws-login -h
+
 Login to AWS via Okta/SAML.
 
-Usage: okta-aws-login [-v|--verbose] [-V|--version] [-l|--list-profiles]
+Usage: okta-aws-login ([--configure] [-p|--aws-profile ARG]
+                      [-l|--okta-embed-link ARG] [-d|--default] [-r|--ecr]
+                      [-c|--config-file ARG] [-s|--session-duration ARG] |
+                      [-v|--verbose] [-V|--version] [-l|--list-profiles]
                       [-u|--user ARG] [-p|--aws-profile ARG] [-r|--region ARG]
-                      [-c|--config-file ARG] [-k|--keep-reloading] [-E|--no-ecr]
-  Login to AWS via Okta/SAML (source: https://github.com/gilt/okta-aws-login)
-  Default config file: "$HOME/.okta-aws-login.json" Example config
-  JSON:
-  {"saml":[{"org":"orgname","aws_profile":"my-aws-profile","okta_aws_account_id":"0oa1298hUiqWerSnBVpO"},{"default":true,"org":"orgname","aws_profile":"my-default-aws-profile","okta_aws_account_id":"0oa87GhDsxZaQw32571u"}]}
+                      [-c|--config-file ARG] [-k|--keep-reloading] ([--no-ecr] |
+                      [--ecr]))
+  Login to AWS via Okta/SAML (source:
+  https://github.com/saksdirect/okta-aws-login) Default config file:
+  "/Users/yourhome/.okta-aws-login.json"
 
 Available options:
   -h,--help                Show this help text
+  --configure              Configure AWS profile given an Okta 'embed' link
+  -p,--aws-profile ARG     Name of the associated AWS profile.
+  -l,--okta-embed-link ARG Okta AWS app 'embed' link, ask your Okta
+                           administrator.
+  -d,--default             User this profile by default.
+  -r,--ecr                 Enable Docker login to ECR registry by default.
+  -c,--config-file ARG     Use alternative config
+                           file. (default: "/Users/yourhome/.okta-aws-login.json")
+  -s,--session-duration ARG
+                           STS session duration, seconds. You can provide a
+                           value from 900 seconds (15 minutes) up to the maximum
+                           session duration setting for the role. Please
+                           coordinate with your AWS administrator.
   -v,--verbose             Be verbose.
   -V,--version             Print version and exit.
   -l,--list-profiles       List available AWS profiles and exit.
@@ -34,50 +65,31 @@ Available options:
                            var, then to default config entry.
   -r,--region ARG          AWS region. (default: us-east-1)
   -c,--config-file ARG     Use alternative config
-                           file. (default: "$HOME/.okta-aws-login.json")
+                           file. (default: "/Users/yourhome/.okta-aws-login.json")
   -k,--keep-reloading      Keep reloading session token hourly (that's the max
                            TTL at the moment). This only works well on a trusted
                            network where you don't need MFA.
-  -E,--no-ecr              Skip 'docker login' to associated ECR registry,
-                           enabled by default, requires docker binary available
-                           in the PATH.
+  --no-ecr                 Skip Docker login to ECR registry, default is in the
+                           config.
+  --ecr                    Attempt Docker login to ECR registry, default is in
+                           the config.
 
-Log in using default AWS profile, you'll be prompted for user name / password:
+Log in using default AWS profile, you'll be prompted for user name / password: 
 
-  $ okta-aws-login
+  $ okta-aws-login 
 
-Specify user name and keep reloading session:
+Specify user name and keep reloading session: 
 
-  $ okta-aws-login --user my-okta-user-name --keep-reloading
+  $ okta-aws-login --user my-okta-user-name --keep-reloading 
 
-Log in with more than one AWS profile:
+Log in with more than one AWS profile: 
 
-  $ okta-aws-login --user my-okta-user-name --aws-profile my-aws-profile1 --aws-profile my-aws-profile2
+  $ okta-aws-login --user my-okta-user-name --aws-profile my-aws-profile1 --aws-profile my-aws-profile2 
 
-Skip ECR login (if you don't care about docker and don't have it installed)
+Skip ECR login (note that you can set default behavior in the config file) 
 
   $ okta-aws-login --no-ecr --user my-okta-user-name --aws-profile my-aws-profile1
-````
 
-
-You need a `$HOME/.okta-aws-login.json` config file with list of profiles and associated Okta account IDs, e.g.
-
-```json
-{
-  "saml": [
-    {
-      "org": "orgname",
-      "aws_profile": "my-aws-profile",
-      "okta_aws_account_id": "0oa1298hUiqWerSnBVpO"
-    },
-    {
-      "default": true,
-      "org": "orgname",
-      "aws_profile": "my-default-aws-profile",
-      "okta_aws_account_id": "0oa87GhDsxZaQw32571u"
-    }
-  ]
-}
 ```
 
 

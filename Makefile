@@ -37,5 +37,6 @@ hoogle:
 	clean \
 	default \
 	hoogle \
+	install \
 	lint \
 	test \

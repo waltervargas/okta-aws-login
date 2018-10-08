@@ -13,6 +13,7 @@ module OktaClient (
 , getOktaAWSSaml
 , oktaAuthenticate
 , oktaMFAVerify
+, parseOktaOrg
 ) where
 
 
@@ -34,7 +35,7 @@ import           Types
 
 findTotpFactors :: [MFAFactor]
                 -> [MFAFactor]
-findTotpFactors = filter (\MFAFactor{..} -> mfaFactorType == "token:software:totp")
+findTotpFactors = filter (\MFAFactor{..} -> T.isPrefixOf "token" mfaFactorType) -- try to accept all (software,hardware) token types
 
 
 -- | Makes a request to /authn end point
@@ -59,7 +60,7 @@ oktaPost :: (ToJSON reqBody, FromJSON resBody)
          -> reqBody
          -> App (Either OktaError resBody)
 oktaPost oOrg rp rb = do
-  initReq <- tParseRequest $ "https://" <> unOktaOrg oOrg <> ".okta.com" <> rp
+  initReq <- tParseRequest $ "https://" <> unOktaOrg oOrg <> rp
   let req = initReq { method = "POST"
                     , requestHeaders = [ (hContentType, "application/json")
                                        , (hAccept,      "application/json")
@@ -70,7 +71,7 @@ oktaPost oOrg rp rb = do
   $(logDebug) $ "Okta request: " <> tshow req
   $(logDebug) $ "Okta request data: " <> (TE.decodeUtf8 . LB.toStrict . encode) rb
   res <- httpJSON req :: App (Response Value) -- get it as Value first, to print the whole thing for debugging
-  $(logDebug) $ "Okta response: " <> tshow res
+  $(logDebug) $ printHTTPBinaryResponse (TE.decodeUtf8 . LB.toStrict . encode) res
 
   let okResponse = case fromJSON (responseBody res)
                      of Error s -> error $ "Unable to parse model from " <> show res <> " error: " <> s
@@ -89,19 +90,21 @@ oktaPost oOrg rp rb = do
 -- | Gets SAML blob by executing a part of the browser request flow.
 -- There's no clean API. One needs to make a sessionCookieRedirect request
 -- to obtain 'sid' cookie and then call SAML integration page and parse HTML.
-getOktaAWSSaml :: OktaOrg
-               -> OktaAWSAccountID
+getOktaAWSSaml :: OktaEmbedLink
                -> SessionToken
                -> App SamlAssertion
-getOktaAWSSaml oOrg oAccId (SessionToken tok) = do
+getOktaAWSSaml oel@(OktaEmbedLink oeLink) (SessionToken tok) = do
+
+  oktaOrg <- parseOktaOrg oel
 
   -- This HTML is expected to contain
   -- <input name="SAMLResponse" type="hidden" value="
-  let redirectUrl = "https://" <> unOktaOrg oOrg <> ".okta.com/app/amazon_aws/" <> unOktaAwsAccountId oAccId <> "/sso/saml?onetimetoken=" <> tok
+  let tokenizedEmbedLink = TE.encodeUtf8 $ oeLink <> "?onetimetoken=" <> tok
 
-  initReq <- tParseRequest $ "https://" <> unOktaOrg oOrg <> ".okta.com/login/sessionCookieRedirect"
+  initReq <- tParseRequest $ "https://" <> unOktaOrg oktaOrg <> "/login/sessionCookieRedirect"
+
   let req = initReq { queryString = renderSimpleQuery True [ ("token", TE.encodeUtf8 tok)
-                                                           , ("redirectUrl", TE.encodeUtf8 redirectUrl)
+                                                           , ("redirectUrl", tokenizedEmbedLink)
                                                            ]
                     , requestHeaders = [ ("Accept", "*/*")
                                        , ("User-Agent", "curl/7.43.0") -- it's important to have a user agent, returns 404 without it
@@ -110,7 +113,7 @@ getOktaAWSSaml oOrg oAccId (SessionToken tok) = do
 
   $(logDebug) $ "Okta SAML request: " <> tshow req
   res <- httpLBS req
-  $(logDebug) $ "Okta SAML response: " <> tshow res
+  $(logDebug) $ printHTTPBinaryResponse (TE.decodeUtf8 . LB.toStrict) res
 
   case parseSAMLResponseHTMLTag $ TE.decodeUtf8 . LB.toStrict . responseBody $ res
     of Nothing -> error $ "Unable to find SAMLResponse in the output of " <> show res
@@ -129,8 +132,21 @@ parseSAMLResponseHTMLTag htmlT =
          listToMaybe $ map snd $ filter (\(n,_) -> n == "value") samlTagAttrs
 
 
-
 tParseRequest :: MonadThrow m
               => Text
               -> m Request
 tParseRequest t = parseRequest (T.unpack t)
+
+
+printHTTPBinaryResponse :: (a -> Text) -> Response a -> Text
+printHTTPBinaryResponse bodyText res =
+  "Okta response:\n\tSTATUS: " <> tshow (responseStatus res) <>
+  "\n\tHEADERS: " <> tshow (responseHeaders res) <>
+  "\n\tCOOKIES: " <> tshow (responseCookieJar res) <>
+  "\n\tBODY:\n" <> (bodyText . responseBody) res
+
+
+-- | AWS app "embed" links are always scoped to a registered organization,
+--   we can simply extract the domain part here
+parseOktaOrg :: OktaEmbedLink -> App OktaOrg
+parseOktaOrg (OktaEmbedLink el) = OktaOrg . TE.decodeUtf8 . host <$> parseRequest (T.unpack el)

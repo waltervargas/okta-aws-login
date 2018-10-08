@@ -10,7 +10,7 @@ module App (
 , chooseOne
 , createConfFileIfDoesntExist
 , getAwsRegion
-, getOktaSamlConfig
+, getOktaAWSConfig
 , getSamlSession
 , getUserCredentials
 , isVerbose
@@ -34,7 +34,8 @@ import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
-import           Control.Monad.Trans.Reader
+import           Control.Monad.Trans.Reader (ReaderT, runReaderT)
+import           Control.Monad.Reader.Class
 import           Data.Foldable
 import           Data.IORef
 import           Data.List.NonEmpty (NonEmpty(..))
@@ -55,7 +56,7 @@ import           Types
 
 data AppState =
   AppState { asArgs :: !Args
-           , asOktaSamlConfig :: !(NonEmpty OktaSamlConfig)
+           , asOktaAWSConfig :: !(NonEmpty OktaAWSConfig)
            , asSamlSessionRef :: !(IORef SamlSession)
            , asUsedMFA :: !(IORef Bool) -- ^ remember if we had to use MFA codes during session (as opposed to being on a trusted net)
            }
@@ -71,6 +72,7 @@ newtype App a =
                  , MonadLogger
                  , MonadLoggerIO
                  , MonadThrow
+                 , MonadReader AppState
                  )
 
 runApp :: App a
@@ -80,7 +82,7 @@ runApp appA args@Args{..} = do
   when argsVersion $ die $ "Version: " <> $(gitBranch) <> "@" <> $(gitHash)
 
   when argsListAwsProfiles $ do
-    (allProfiles, defProf) <- listOktaSamlConfigProfiles args
+    (allProfiles, defProf) <- listOktaAWSConfigProfiles args
     envProf <- getEnvAWSProfile
 
     forM_ allProfiles $ \p -> TIO.putStrLn $ unAwsProfile p
@@ -95,7 +97,7 @@ runApp appA args@Args{..} = do
 
   let llf _ ll = argsVerbose || (ll >= LevelInfo)
 
-  samlConf <- findOktaSamlConfig args
+  samlConf <- findOktaAWSConfig args
   samlSessRef <- newIORef []
   usedMFARef <- newIORef False
 
@@ -110,11 +112,13 @@ isVerbose = fmap argsVerbose getArgs
 keepReloading :: App Bool
 keepReloading = fmap argsKeepReloading getArgs
 
-doECRLogin :: App Bool
-doECRLogin = fmap (not . argsNoECRLogin) getArgs
+doECRLogin :: SamlAccountSession -> App Bool
+doECRLogin SamlAccountSession{..} = do
+  cliArg <- fmap argsECRLogin getArgs -- has precedence over config
+  return $ fromMaybe sasECRLogin cliArg
 
-getOktaSamlConfig :: App (NonEmpty OktaSamlConfig)
-getOktaSamlConfig = App $ fmap asOktaSamlConfig ask
+getOktaAWSConfig :: App (NonEmpty OktaAWSConfig)
+getOktaAWSConfig = App $ fmap asOktaAWSConfig ask
 
 
 getUserCredentials :: App UserCredentials
@@ -138,7 +142,7 @@ askUser e p = liftIO $ withEcho e $ do
 
 
 getArgs :: App Args
-getArgs = App $ fmap asArgs ask
+getArgs = asks asArgs
 
 
 getAwsRegion :: App Region
@@ -147,13 +151,13 @@ getAwsRegion = fmap argsRegion getArgs
 
 getSamlSession :: App SamlSession
 getSamlSession = do
-  AppState{..} <- App ask
+  AppState{..} <- ask
   liftIO $ readIORef asSamlSessionRef
 
 setSamlSession :: SamlSession
                -> App SamlSession
 setSamlSession s = do
-  AppState{..} <- App ask
+  AppState{..} <- ask
   liftIO $ writeIORef asSamlSessionRef s
   return s
 
@@ -164,13 +168,13 @@ updateSamlSession upS = getSamlSession >>= upS >>= setSamlSession
 
 usedMFA :: App Bool
 usedMFA = do
-  AppState{..} <- App ask
+  AppState{..} <- ask
   liftIO $ readIORef asUsedMFA
 
 useMFA :: Bool
        -> App ()
 useMFA x = do
-  AppState{..} <- App ask
+  AppState{..} <- ask
   liftIO $ writeIORef asUsedMFA x
 
 
@@ -226,13 +230,13 @@ createConfFileIfDoesntExist fp txt = do
 
 
 
-findOktaSamlConfig :: Args
-                   -> IO (NonEmpty OktaSamlConfig)
-findOktaSamlConfig Args{..} = do
+findOktaAWSConfig :: Args
+                   -> IO (NonEmpty OktaAWSConfig)
+findOktaAWSConfig Args{..} = do
   appConf <- readAppConfigFile argsConfigFile
   envProf <- getEnvAWSProfile
 
-  let defaultConfiguredProfiles = ocAwsProfile <$> NEL.filter (fromMaybe False . ocDefault) (ocSaml appConf)
+  let defaultConfiguredProfiles = ocAwsProfile <$> NEL.filter (fromMaybe False . ocDefault) (unAppConfig appConf)
 
        -- consider profiles in the order of preference
       selectedProfiles = fromMaybe [] $ listToMaybe $ filter (not . null)
@@ -241,9 +245,9 @@ findOktaSamlConfig Args{..} = do
                            , defaultConfiguredProfiles
                            ]
 
-      samlConfPredicate OktaSamlConfig{..} = ocAwsProfile `elem` selectedProfiles
+      samlConfPredicate OktaAWSConfig{..} = ocAwsProfile `elem` selectedProfiles
 
-      selectedSamlConfigs = filter samlConfPredicate (NEL.toList (ocSaml appConf))
+      selectedSamlConfigs = filter samlConfPredicate (NEL.toList (unAppConfig appConf))
 
   case NEL.nonEmpty selectedSamlConfigs
     of Nothing -> error $ "Please provide at least one AWS profile or specify default(s) (in the config file or via an AWS_PROFILE environmental variable)." <>
@@ -252,16 +256,16 @@ findOktaSamlConfig Args{..} = do
 
 
 -- | Returns configured profiles, with an optional default configured profile
-listOktaSamlConfigProfiles :: Args
+listOktaAWSConfigProfiles :: Args
                            -> IO ([AWSProfile], Maybe AWSProfile)
-listOktaSamlConfigProfiles Args{..} = do
+listOktaAWSConfigProfiles Args{..} = do
   AppConfig{..} <- readAppConfigFile argsConfigFile
 
   let isDefaultConfig = fromMaybe False . ocDefault
 
-      maybeDefaultProfile = ocAwsProfile <$> find isDefaultConfig ocSaml
+      maybeDefaultProfile = ocAwsProfile <$> find isDefaultConfig unAppConfig
 
-      allProfiles = toList $ fmap ocAwsProfile ocSaml
+      allProfiles = toList $ fmap ocAwsProfile unAppConfig
 
   return (allProfiles, maybeDefaultProfile)
 
