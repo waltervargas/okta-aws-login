@@ -1,18 +1,21 @@
 module Args (
   Args(..)
-, runWithArgs
+, Command(..)
+, ConfigArgs(..)
+, runWithCommand
 ) where
 
 
 import           AppConfig
 import qualified Data.Text as T
 import           Network.AWS.Data
+import           Network.AWS.Prelude (Natural)
 import           Network.AWS.Types
 import           Options.Applicative
 import qualified Text.PrettyPrint.ANSI.Leijen as PP
 import           Types
 
-
+-- | Arguments used for main (login to AWS) functionality
 data Args = Args { argsVerbose :: !Bool
                  , argsVersion :: !Bool
                  , argsListAwsProfiles :: !Bool
@@ -21,8 +24,25 @@ data Args = Args { argsVerbose :: !Bool
                  , argsRegion :: !Region
                  , argsConfigFile :: !FilePath
                  , argsKeepReloading :: !Bool
-                 , argsNoECRLogin :: !Bool
+                 , argsECRLogin :: !(Maybe Bool)
                  } deriving (Show)
+
+
+-- | Arguments used to initially configure this tool
+data ConfigArgs = ConfigArgs { confArgsProfile :: !AWSProfile
+                             , confArgsOktaEmbedLink :: !OktaEmbedLink
+                             , confArgsIsDefaultProfile :: !(Maybe Bool)
+                             , confArgsEnableECRLogin :: !(Maybe Bool)
+                             , confArgsConfFilePath :: !FilePath
+                             , confArgsSessionDurationSeconds :: !Natural
+                             } deriving Show
+
+
+-- | Top-level command, either proceed with login (most likely)
+--   configure this tool (initially)
+data Command = Login Args
+             | Configure ConfigArgs
+             deriving Show
 
 
 parseArgs :: FilePath
@@ -64,29 +84,69 @@ parseArgs defConf = Args
          ( long "keep-reloading"
         <> short 'k'
         <> help "Keep reloading session token hourly (that's the max TTL at the moment). This only works well on a trusted network where you don't need MFA.")
-     <*> switch
-         ( long "no-ecr"
-        <> short 'E'
-        <> help "Skip 'docker login' to associated ECR registry, enabled by default, requires docker binary available in the PATH.")
+     <*> optional (
+            not <$> switch (long "no-ecr" <> help "Skip Docker login to ECR registry, default is in the config.")
+            <|>
+            switch (long "ecr" <> help "Attempt Docker login to ECR registry, default is in the config.")
+         )
 
 
 parseRegion :: ReadM Region
 parseRegion = eitherReader (fromText . T.pack)
 
 
-runWithArgs:: (Args -> IO ())
-           -> IO ()
-runWithArgs rwa = do
+parseConfigArgs :: FilePath
+                -> Parser ConfigArgs
+parseConfigArgs defConf = ConfigArgs
+      <$> (AWSProfile . T.pack <$> strOption
+           ( long "aws-profile"
+          <> short 'p'
+          <> help "Name of the associated AWS profile."))
+      <*> (OktaEmbedLink . T.pack <$> strOption
+           ( long "okta-embed-link"
+          <> short 'l'
+          <> help "Okta AWS app 'embed' link, ask your Okta administrator."))
+      <*> optional ( switch
+            (long "default"
+           <> short 'd'
+           <> help "User this profile by default."))
+      <*> optional (switch
+            (long "ecr"
+           <> short 'r'
+           <> help "Enable Docker login to ECR registry by default."))
+     <*> strOption
+         ( long "config-file"
+        <> short 'c'
+        <> value defConf
+        <> showDefaultWith show
+        <> help "Use alternative config file." )
+     <*> option auto
+           ( long "session-duration"
+          <> short 's'
+          <> help "STS session duration, seconds. You can provide a value from 900 seconds (15 minutes) up to the maximum session duration setting for the role. Please coordinate with your AWS administrator."
+           )
+
+
+parseCommand :: FilePath -- ^ default config file
+             -> Parser Command
+parseCommand defConf =
+  ( switch (long "configure" <> help "Configure AWS profile given an Okta 'embed' link")
+    *> (Configure <$> parseConfigArgs defConf)
+  ) <|> (Login <$> parseArgs defConf)
+
+
+runWithCommand :: (Command -> IO ())
+               -> IO ()
+runWithCommand rwa = do
   defConfFile <- defaultConfigFileName
   execParser (opts defConfFile) >>= rwa
   where
-    opts defConf = info (helper <*> parseArgs defConf)
+    opts defConf = info (helper <*> parseCommand defConf)
       ( fullDesc
      <> header "Login to AWS via Okta/SAML."
      <> progDesc ( "Login to AWS via Okta/SAML " <>
-                   " (source: https://github.com/gilt/okta-aws-login) " <>
-                   " Default config file: " <> show defConf <>
-                   " Example config JSON: " <> exampleAppConfig
+                   " (source: https://github.com/saksdirect/okta-aws-login) " <>
+                   " Default config file: " <> show defConf
                  )
      <> (footerDoc . Just)
         (PP.text "Log in using default AWS profile, you'll be prompted for user name / password:"
@@ -101,7 +161,7 @@ runWithArgs rwa = do
          PP.<+> PP.linebreak
          PP.<$> PP.indent 2 (PP.text "$ okta-aws-login --user my-okta-user-name --aws-profile my-aws-profile1 --aws-profile my-aws-profile2")
          PP.<+> PP.linebreak
-         PP.<$> PP.text "Skip ECR login (if you don't care about docker and don't have it installed)"
+         PP.<$> PP.text "Skip ECR login (note that you can set default behavior in the config file)"
          PP.<+> PP.linebreak
          PP.<$> PP.indent 2 (PP.text "$ okta-aws-login --no-ecr --user my-okta-user-name --aws-profile my-aws-profile1")
         )

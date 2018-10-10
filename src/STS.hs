@@ -10,26 +10,29 @@ module STS (
 ) where
 
 import           App
-import           Control.Bool (whenM)
 import           Control.Lens
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import           Control.Monad.Trans.AWS
 import qualified Data.Text as T
 import           Network.AWS.ECR
+import           Network.AWS.Prelude
 import           Network.AWS.STS
 import           System.IO
 import           Types hiding (SessionToken)
 
 
-awsAssumeRole :: SamlAssertion
+awsAssumeRole :: Bool -- ^ ECR login
+              -> Natural -- ^ session duration, seconds
+              -> SamlAssertion
               -> SamlRole
               -> App (SamlAWSCredentials, [AuthorizationData])
-awsAssumeRole sa@(SamlAssertion samlAssertion) sr@SamlRole{..} = do
+awsAssumeRole ecrLogin sessionDurationSec sa@(SamlAssertion samlAssertion) sr@SamlRole{..} = do
   env <- newEnv (FromKeys (AccessKey "xxx") (SecretKey "yyy")) >>= configureEnvironment -- shouldn't need valid keys for this call
 
   stsCreds <- liftIO $ runResourceT . runAWST env $ do
-    res <- send (assumeRoleWithSAML srRoleARN srPrincipalARN samlAssertion)
+    res <- send (assumeRoleWithSAML srRoleARN srPrincipalARN samlAssertion &
+                   arwsamlDurationSeconds ?~ sessionDurationSec)
     case res ^. arwsamlrsCredentials
       of Just c -> return c
          Nothing -> error $ "Unable to get AWS credentials for " <> show sa <> " " <> show sr
@@ -44,7 +47,7 @@ awsAssumeRole sa@(SamlAssertion samlAssertion) sr@SamlRole{..} = do
                                  (stsCreds ^. secretAccessKey)
                                  sessTok
 
-  ecrAuthData <- whenM doECRLogin (getEcrAuthData sessionCreds)
+  ecrAuthData <- if ecrLogin then getEcrAuthData sessionCreds else pure []
   $(logDebug) $ T.pack $ "ECR auth data " <> show ecrAuthData
 
   let sawsc = SamlAWSCredentials (stsCreds ^. accessKeyId)

@@ -30,6 +30,7 @@ executable okta-aws-login
   build-depends:       base
                      , aeson
                      , aeson-casing
+                     , aeson-pretty
                      , amazonka
                      , amazonka-core
                      , amazonka-ecr
@@ -54,6 +55,7 @@ executable okta-aws-login
                      , monad-control
                      , monad-logger
                      , monad-loops
+                     , mtl
                      , optparse-applicative
                      , process
                      , tagsoup

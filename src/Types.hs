@@ -17,16 +17,16 @@ module Types (
 , MFAFactor(..)
 , MFAFactorID(..)
 , MFAPassCode(..)
-, OktaAWSAccountID(..)
+, OktaAWSConfig(..)
 , OktaAuthResponse(..)
+, OktaEmbedLink(..)
 , OktaError(..)
 , OktaOrg(..)
-, OktaSamlConfig(..)
 , Password(..)
 , RequestPath
+, SamlAWSCredentials(..)
 , SamlAccountSession(..)
 , SamlAssertion(..)
-, SamlAWSCredentials(..)
 , SamlRole(..)
 , SamlSession
 , SessionToken(..)
@@ -47,6 +47,7 @@ import           Data.String (IsString)
 import           Data.Text (Text)
 import qualified Network.AWS.Data.ByteString as AWSBS
 import qualified Network.AWS.ECR as ECR
+import           Network.AWS.Prelude (Natural)
 import qualified Network.AWS.Types as AWST
 
 
@@ -65,20 +66,20 @@ newtype OktaOrg =
 newtype AWSProfile =
   AWSProfile { unAwsProfile :: Text } deriving (Eq, Show, FromJSON, ToJSON, IsString)
 
-newtype OktaAWSAccountID =
-  OktaAWSAccountID { unOktaAwsAccountId :: Text } deriving (Eq, Show, FromJSON, ToJSON, IsString)
+newtype OktaEmbedLink =
+  OktaEmbedLink { unOktaEmbedLink :: Text } deriving (Eq, Show, FromJSON, ToJSON, IsString)
 
+data OktaAWSConfig =
+  OktaAWSConfig { ocEmbedLink :: !OktaEmbedLink
+                , ocAwsProfile :: !AWSProfile
+                , ocDefault :: !(Maybe Bool)
+                , ocECRLogin :: !(Maybe Bool)
+                , ocSessionDurationSeconds :: !Natural
+                } deriving (Eq, Show)
 
-data OktaSamlConfig =
-  OktaSamlConfig { ocOrg :: !OktaOrg
-                 , ocAwsProfile :: !AWSProfile
-                 , ocOktaAwsAccountId :: !OktaAWSAccountID
-                 , ocDefault :: !(Maybe Bool)
-                 } deriving (Eq, Show)
+$(deriveJSON (aesonPrefix snakeCase){ omitNothingFields = True } ''OktaAWSConfig)
 
-$(deriveJSON (aesonPrefix snakeCase){ omitNothingFields = True } ''OktaSamlConfig)
-
-newtype AppConfig = AppConfig { ocSaml:: NonEmpty OktaSamlConfig }
+newtype AppConfig = AppConfig { unAppConfig:: NonEmpty OktaAWSConfig }
 
 $(deriveJSON (aesonPrefix snakeCase) ''AppConfig)
 
@@ -107,9 +108,10 @@ instance Show SamlAWSCredentials where
                                                   "\" }"
 
 data SamlAccountSession =
-  SamlAccountSession { sasOktaOrg :: !OktaOrg
+  SamlAccountSession { sasEmbedLink :: !OktaEmbedLink
+                     , sasECRLogin :: !Bool
+                     , sasSessionDurationSeconds :: !Natural
                      , sasAwsProfile :: !AWSProfile
-                     , sasAccountID :: !OktaAWSAccountID
                      , sasChosenSamlRole :: !(Maybe SamlRole)
                      , sasAwsCredentials :: !SamlAWSCredentials
                      , sasDockerAuths :: ![ECR.AuthorizationData]

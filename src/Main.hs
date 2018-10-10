@@ -8,6 +8,7 @@ module Main where
 
 import           AWSCredsFile
 import           App
+import           AppConfig
 import           Args
 import           Control.Concurrent
 import           Control.Monad
@@ -31,7 +32,29 @@ import           Types
 
 
 main:: IO ()
-main = runWithArgs $ runApp $ do
+main = runWithCommand runTopLevelCommand
+
+
+-- | Run top-level command
+runTopLevelCommand :: Command -> IO ()
+
+
+-- | Initial (or incremental) config of the app
+runTopLevelCommand (Configure ConfigArgs{..}) = do
+  let newConfSection = OktaAWSConfig confArgsOktaEmbedLink confArgsProfile
+                                     confArgsIsDefaultProfile confArgsEnableECRLogin
+                                     confArgsSessionDurationSeconds
+
+  maybeConf <- tryReadAppConfig confArgsConfFilePath
+  let newConf = case maybeConf
+                  of Nothing -> newAppConfig newConfSection
+                     Just ac -> mergeAppConfig newConfSection ac
+
+  writeAppConfigFile confArgsConfFilePath newConf
+
+
+-- | Login to AWS with Okta
+runTopLevelCommand (Login args) = flip runApp args $ do
   cr <- getUserCredentials
   _ <- createInitialOrgSessions >>= setSamlSession
 
@@ -50,7 +73,6 @@ main = runWithArgs $ runApp $ do
     unless doRefresh $ error "Session refresh cancelled, exiting ..."
     useMFA False -- reset state, network may have switched by now
     updateSamlSession (refreshSamlSession cr)
-
 
 
 refreshSamlSession :: UserCredentials
@@ -81,7 +103,8 @@ refreshAccountSession :: UserCredentials
                       -> App SamlAccountSession
 refreshAccountSession uc sas@SamlAccountSession{..} = do
 
-  errorOrRes <- oktaAuthenticate sasOktaOrg $ AuthRequestUserCredentials uc
+  oktaOrg <- parseOktaOrg sasEmbedLink
+  errorOrRes <- oktaAuthenticate oktaOrg $ AuthRequestUserCredentials uc
 
   res <- case errorOrRes
            of Left e -> error $ "Unexpected Okta response: " <> show e <> " please check your credentials!"
@@ -90,22 +113,21 @@ refreshAccountSession uc sas@SamlAccountSession{..} = do
   -- May need to try MFA
   sessionTok <- case res
                   of AuthResponseSuccess st -> return st
-                     AuthResponseMFARequired st mfas -> askForMFA sasOktaOrg st mfas
+                     AuthResponseMFARequired st mfas -> askForMFA oktaOrg st mfas
                      AuthResponseOther e -> error $ "Unexpected Okta response: " <> show e
 
-  saml <- getOktaAWSSaml sasOktaOrg sasAccountID sessionTok
+  saml <- getOktaAWSSaml sasEmbedLink sessionTok
   samlRole <- case sasChosenSamlRole
                 of Just sr -> return sr
                    Nothing -> chooseSamlRole (parseSamlAssertion saml)
 
-  (awsCreds, dockerAuths) <- awsAssumeRole saml samlRole
+  (awsCreds, dockerAuths) <- awsAssumeRole sasECRLogin sasSessionDurationSeconds  saml samlRole
 
   let updatedSession = sas { sasChosenSamlRole = Just samlRole
                            , sasAwsCredentials = awsCreds
                            , sasDockerAuths = dockerAuths }
 
   return updatedSession
-
 
 
 askForMFA :: OktaOrg
@@ -139,12 +161,10 @@ askForMFA oOrg st mfas = do
                        e                     -> error $ "Unexpected Okta response: " <> show e
 
 
-
 chooseSamlRole :: NonEmpty SamlRole
                -> App SamlRole
 chooseSamlRole srs =
   chooseOne $ fmap (\(nc, sr@SamlRole{..}) -> nc srRoleARN sr) (NL.zip (NL.fromList numericChoices) srs)
-
 
 
 -- | Okta gives us a Base64 encoded XML doc with assertions, decode available roles.
@@ -167,17 +187,16 @@ parseSamlAssertion (SamlAssertion sa) =
    in fromMaybe (error $ "Sorry, couldn't extract any role ARNs from " <> show doc) (NL.nonEmpty extractRoles)
 
 
-
 -- | Init session data with some defaults and dummy values
 createInitialOrgSessions :: App [SamlAccountSession]
 createInitialOrgSessions = do
-  samlConfs <- getOktaSamlConfig
+  samlConfs <- getOktaAWSConfig
   $(logInfo) $ "Using AWS profiles " <> tshow (unAwsProfile . ocAwsProfile <$> samlConfs)
 
   let emptyCreds = SamlAWSCredentials "" "" ""
 
-      initialAccountSession OktaSamlConfig{..} =
-        SamlAccountSession ocOrg ocAwsProfile ocOktaAwsAccountId Nothing emptyCreds []
+      initialAccountSession OktaAWSConfig{..} =
+        SamlAccountSession ocEmbedLink (fromMaybe False ocECRLogin) ocSessionDurationSeconds ocAwsProfile Nothing emptyCreds []
 
       initialAccountSessions = initialAccountSession <$> samlConfs
 

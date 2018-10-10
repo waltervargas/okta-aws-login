@@ -3,41 +3,76 @@
 -- | Company / account names / ids
 module AppConfig (
   defaultConfigFileName
-, exampleAppConfig
+, mergeAppConfig
+, newAppConfig
 , readAppConfigFile
+, tryReadAppConfig
+, writeAppConfigFile
 ) where
 
 
 import           Control.Bool
 import           Data.Aeson
+import           Data.Aeson.Encode.Pretty
 import qualified Data.ByteString.Lazy as LB
-import qualified Data.ByteString.Lazy.UTF8 as U8
-import           Data.List.NonEmpty
+import           Data.List.NonEmpty as NEL
+import           Data.Maybe
 import           System.Directory
 import           System.FilePath
 import           Types
 
 
+-- | Reads required app config file, error if not found
 readAppConfigFile :: FilePath
                   -> IO AppConfig
-readAppConfigFile confFp =
+readAppConfigFile confFp = do
+  ac <- tryReadAppConfig confFp
+  case ac
+    of Just x -> pure x
+       Nothing -> error $ "Config file " <> confFp <>
+                          " was not found or was not accessible, please configure first!"
+
+
+-- | Reads config file if present, returns Nothing otherwise
+tryReadAppConfig :: FilePath
+                 -> IO (Maybe AppConfig)
+tryReadAppConfig confFp =
   ifThenElseM (doesFileExist confFp)
     ( do jsonData <- LB.readFile confFp
          case eitherDecode' jsonData
            of Left e -> error $ "Unable to parse JSON config from " <> confFp <> " error: " <> e
-              Right c -> return c )
-    ( error $ "Config file " <> confFp <> " was not found or was not accessible." )
+              Right c -> (return . Just) c )
+    (return Nothing)
 
 
+-- | Writes app config out to file
+writeAppConfigFile :: FilePath
+                   -> AppConfig
+                   -> IO ()
+writeAppConfigFile confFp appConf =
+  LB.writeFile confFp (encodePretty appConf)
+
+
+-- | Merges new config section into existing app config
+mergeAppConfig :: OktaAWSConfig
+               -> AppConfig
+               -> AppConfig
+mergeAppConfig oConf appConf = AppConfig $
+  oConf :| (maybeResetDefault . filterOutExisting . unAppConfig) appConf
+
+  where filterOutExisting = NEL.filter (\c -> ocAwsProfile c /= ocAwsProfile oConf)
+        maybeResetDefault xs = if fromMaybe False (ocDefault oConf)
+                                 then fmap (\c -> c { ocDefault = Just False }) xs
+                                 else xs
+
+-- | Creates new app config
+newAppConfig :: OktaAWSConfig
+             -> AppConfig
+newAppConfig oConf = AppConfig $ oConf :| []
+
+
+-- | Constructs user-default config path
 defaultConfigFileName :: IO FilePath
 defaultConfigFileName = do
   h <- getHomeDirectory
   return $ h </> ".okta-aws-login.json"
-
-
-exampleAppConfig :: String
-exampleAppConfig = U8.toString . encode . AppConfig $
-  fromList [
-    OktaSamlConfig "orgname" "my-aws-profile" "0oa1298hUiqWerSnBVpO" Nothing
-  , OktaSamlConfig "orgname" "my-default-aws-profile" "0oa87GhDsxZaQw32571u" (Just True)
-  ]
