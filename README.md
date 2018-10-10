@@ -2,13 +2,13 @@
 
 Logs in to [AWS ECR](https://aws.amazon.com/ecr/) at the same time. Populates `$HOME/.aws/credentials` and runs `docker login` with temporary ECR credentials.
 
-[Releases](https://github.com/gilt/okta-aws-login/releases)
+[Releases](https://github.com/saksdirect/okta-aws-login/releases)
 
 
 # Install
 
 ```bash
-curl -L https://raw.githubusercontent.com/gilt/okta-aws-login/master/install | /bin/bash
+curl -L https://raw.githubusercontent.com/saksdirect/okta-aws-login/master/install | /bin/bash
 ```
 
 Initially this tool needs to be configured, you need to know:

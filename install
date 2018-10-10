@@ -4,7 +4,7 @@
 
 set -e
 
-DL=https://github.com/gilt/okta-aws-login/releases/download/v0.8
+DL=https://github.com/saksdirect/okta-aws-login/releases/download/v1.1
 DL_BIN=$DL/okta-aws-login-$(uname -s)-$(uname -m)
 TARGET=/usr/local/bin/okta-aws-login
 

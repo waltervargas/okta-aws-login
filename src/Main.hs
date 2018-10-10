@@ -61,8 +61,12 @@ runTopLevelCommand (Login args) = flip runApp args $ do
   -- First login, possibly ask user some questions
   _ <- updateSamlSession (refreshSamlSession cr)
 
+  minSessionDurationSeconds <- (\configs -> minimum (ocSessionDurationSeconds <$> configs)) <$> getOktaAWSConfig
+  let sleepTime = minSessionDurationSeconds - 1 -- 1 sec before expiration
+
   whileM_ keepReloading $ do
-    liftIO $ threadDelay (59 * 60 * 1000000) -- 59min, temporary token has 1h TTL
+    $(logDebug) $ "Sleeping for " <> tshow sleepTime <> " seconds ..."
+    liftIO $ threadDelay $ fromIntegral sleepTime * 1000000
 
     uMfa <- usedMFA
 
