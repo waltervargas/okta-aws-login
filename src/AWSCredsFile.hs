@@ -10,12 +10,16 @@ module AWSCredsFile (
 
 
 import           App
+import           Control.Bool
+import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import           Data.Foldable
 import qualified Data.HashMap.Strict as M
 import           Data.Ini
 import           Data.Maybe
+import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import           Network.AWS.Data.Text
 import           Network.AWS.Types
 import           System.Directory
@@ -64,3 +68,20 @@ updateProfileCredentials region awsProf SamlAWSCredentials{..} awsIni =
                 M.insert "aws_secret_access_key" (toText sacAuthSecret) .
                 M.insert "aws_session_token"     (toText sacAuthToken) .
                 M.insert "aws_security_token"    (toText sacAuthToken) ) savedProfileConfSection ) (unIni awsIni)
+
+
+-- | Creates a missing config file with a default text
+createConfFileIfDoesntExist :: FilePath
+                            -> Text
+                            -> App ()
+createConfFileIfDoesntExist fp txt = do
+  let (dir, _) = splitFileName fp
+
+  created <- liftIO $
+    ifThenElseM (doesFileExist fp)
+      (return False)
+      ( do createDirectoryIfMissing False dir
+           TIO.writeFile fp txt
+           return True)
+
+  when created $ $(logInfo) $ "Created default config " <> T.pack fp

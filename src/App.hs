@@ -1,22 +1,21 @@
-{-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE TemplateHaskell            #-}
 
 module App (
   App
 , askUser
 , chooseOne
-, createConfFileIfDoesntExist
+, doECRLogin
+, getArgs
 , getAwsRegion
 , getOktaAWSConfig
 , getSamlSession
 , getUserCredentials
 , isVerbose
 , keepReloading
+, listAppConfigProfiles
 , lookupChoice
-, doECRLogin
 , numericChoices
 , runApp
 , setSamlSession
@@ -29,14 +28,11 @@ module App (
 
 import           AppConfig
 import           Args
-import           Control.Bool
-import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import           Control.Monad.Trans.Reader (ReaderT, runReaderT)
 import           Control.Monad.Reader.Class
-import           Data.Foldable
 import           Data.IORef
 import           Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NEL
@@ -44,12 +40,7 @@ import           Data.Maybe
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import           Development.GitRev
 import           Network.AWS.Types
-import           System.Directory
-import           System.Environment (lookupEnv)
-import           System.Exit
-import           System.FilePath
 import           System.IO
 import           Types
 
@@ -79,30 +70,13 @@ runApp :: App a
        -> Args
        -> IO a
 runApp appA args@Args{..} = do
-  when argsVersion $ die $ "Version: " <> $(gitBranch) <> "@" <> $(gitHash)
-
-  when argsListAwsProfiles $ do
-    (allProfiles, defProf) <- listOktaAWSConfigProfiles args
-    envProf <- getEnvAWSProfile
-
-    forM_ allProfiles $ \p -> TIO.putStrLn $ unAwsProfile p
-    forM_ defProf $ \p -> TIO.putStrLn $ "\nYour configured default profile is " <> unAwsProfile p <> "."
-    forM_ envProf $ \p -> TIO.putStrLn $ "\nYour environment is configured with " <> unAwsProfile p <> ", it will override your config file defaults."
-
-    when ((null . catMaybes) [envProf, defProf]) $
-      TIO.putStrLn $ "\nNote that you can change your default AWS profile by exporting AWS_PROFILE environmental variable" <>
-                     " or adding '\"default\": true' property to your preferred AWS profile in the config file."
-
-    die ""
-
   let llf _ ll = argsVerbose || (ll >= LevelInfo)
 
-  samlConf <- findOktaAWSConfig args
+  samlConf <- loadAppConfig args
   samlSessRef <- newIORef []
   usedMFARef <- newIORef False
 
   let appState = AppState args samlConf samlSessRef usedMFARef
-
   runStderrLoggingT $ filterLogger llf $ runReaderT (unApp appA) appState
 
 
@@ -195,7 +169,7 @@ lookupChoice k cs =
   fmap icChoice $ listToMaybe $ filter (\InteractiveChoce{..} -> icKey == k) cs
 
 
-
+-- | Ask user to pick an option among available choices
 chooseOne :: NonEmpty (InteractiveChoce a)
           -> App a
 chooseOne (InteractiveChoce{..} :| []) = return icChoice
@@ -210,69 +184,6 @@ chooseOne opts = do
     of Nothing -> do liftIO $ putStrLn $ "Sorry, your choice of " <> show uc <> " is not available, please try again."
                      chooseOne opts
        Just x -> return x
-
-
--- | Creates a missing config file with a default text
-createConfFileIfDoesntExist :: FilePath
-                            -> Text
-                            -> App ()
-createConfFileIfDoesntExist fp txt = do
-  let (dir, _) = splitFileName fp
-
-  created <- liftIO $
-    ifThenElseM (doesFileExist fp)
-      (return False)
-      ( do createDirectoryIfMissing False dir
-           TIO.writeFile fp txt
-           return True)
-
-  when created $ $(logInfo) $ "Created default config " <> T.pack fp
-
-
-
-findOktaAWSConfig :: Args
-                   -> IO (NonEmpty OktaAWSConfig)
-findOktaAWSConfig Args{..} = do
-  appConf <- readAppConfigFile argsConfigFile
-  envProf <- getEnvAWSProfile
-
-  let defaultConfiguredProfiles = ocAwsProfile <$> NEL.filter (fromMaybe False . ocDefault) (unAppConfig appConf)
-
-       -- consider profiles in the order of preference
-      selectedProfiles = fromMaybe [] $ listToMaybe $ filter (not . null)
-                           [ argsAwsProfiles
-                           , maybeToList envProf
-                           , defaultConfiguredProfiles
-                           ]
-
-      samlConfPredicate OktaAWSConfig{..} = ocAwsProfile `elem` selectedProfiles
-
-      selectedSamlConfigs = filter samlConfPredicate (NEL.toList (unAppConfig appConf))
-
-  case NEL.nonEmpty selectedSamlConfigs
-    of Nothing -> error $ "Please provide at least one AWS profile or specify default(s) (in the config file or via an AWS_PROFILE environmental variable)." <>
-                          " You can re-run with -l to see the list of configured profiles."
-       Just cs -> return cs
-
-
--- | Returns configured profiles, with an optional default configured profile
-listOktaAWSConfigProfiles :: Args
-                           -> IO ([AWSProfile], Maybe AWSProfile)
-listOktaAWSConfigProfiles Args{..} = do
-  AppConfig{..} <- readAppConfigFile argsConfigFile
-
-  let isDefaultConfig = fromMaybe False . ocDefault
-
-      maybeDefaultProfile = ocAwsProfile <$> find isDefaultConfig unAppConfig
-
-      allProfiles = toList $ fmap ocAwsProfile unAppConfig
-
-  return (allProfiles, maybeDefaultProfile)
-
-
--- | Looks up AWS_PROFILE env var
-getEnvAWSProfile :: IO (Maybe AWSProfile)
-getEnvAWSProfile = fmap (AWSProfile . T.pack) <$> lookupEnv "AWS_PROFILE"
 
 
 -- | Control terminal echo, flush stdin, for user interaction
