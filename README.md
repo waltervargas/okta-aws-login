@@ -20,46 +20,29 @@ Your system administrators should be able to provide both of these.
 
 Example configuration (assuming you are allowed to have 12h sessions):
 ```bash
-$ okta-aws-login  --configure --okta-embed-link https://YOURSITE.okta.com/home/amazon_aws/xxxxxxxxxxxxxxxxxxxx/yyy --aws-profile production --default --ecr --session-duration 43200
+$ okta-aws-login configure --okta-embed-link https://YOURSITE.okta.com/home/amazon_aws/xxxxxxxxxxxxxxxxxxxx/yyy --aws-profile production --default --ecr --session-duration 43200
 ```
+
+Run `okta-aws-login configure -h` for description of configuration options.
 
 
 # CLI
 
 ```bash
-$ okta-aws-login -h
-
 Login to AWS via Okta/SAML.
 
-Usage: okta-aws-login ([--configure] [-p|--aws-profile ARG]
-                      [-l|--okta-embed-link ARG] [-d|--default] [-r|--ecr]
-                      [-c|--config-file ARG] [-s|--session-duration ARG] |
-                      [-v|--verbose] [-V|--version] [-l|--list-profiles]
-                      [-u|--user ARG] [-p|--aws-profile ARG] [-r|--region ARG]
+Usage: okta-aws-login ([COMMAND] | [-V|--version] [-v|--verbose] [-u|--user ARG]
+                      [-p|--aws-profile ARG] [-r|--region ARG]
                       [-c|--config-file ARG] [-k|--keep-reloading] ([--no-ecr] |
-                      [--ecr]))
+                      [--ecr]) | [-l|--list-profiles])
   Login to AWS via Okta/SAML (source:
   https://github.com/saksdirect/okta-aws-login) Default config file:
   "/Users/yourhome/.okta-aws-login.json"
 
 Available options:
   -h,--help                Show this help text
-  --configure              Configure AWS profile given an Okta 'embed' link
-  -p,--aws-profile ARG     Name of the associated AWS profile.
-  -l,--okta-embed-link ARG Okta AWS app 'embed' link, ask your Okta
-                           administrator.
-  -d,--default             User this profile by default.
-  -r,--ecr                 Enable Docker login to ECR registry by default.
-  -c,--config-file ARG     Use alternative config
-                           file. (default: "/Users/yourhome/.okta-aws-login.json")
-  -s,--session-duration ARG
-                           STS session duration, seconds. You can provide a
-                           value from 900 seconds (15 minutes) up to the maximum
-                           session duration setting for the role. Please
-                           coordinate with your AWS administrator.
-  -v,--verbose             Be verbose.
   -V,--version             Print version and exit.
-  -l,--list-profiles       List available AWS profiles and exit.
+  -v,--verbose             Be verbose.
   -u,--user ARG            User name.
   -p,--aws-profile ARG     AWS profile. Defaults to value of AWS_PROFILE env
                            var, then to default config entry.
@@ -73,6 +56,10 @@ Available options:
                            config.
   --ecr                    Attempt Docker login to ECR registry, default is in
                            the config.
+  -l,--list-profiles       List available AWS profiles and exit.
+
+Available commands:
+  configure                Configure AWS profile given an Okta 'embed' link
 
 Log in using default AWS profile, you'll be prompted for user name / password: 
 
@@ -89,7 +76,6 @@ Log in with more than one AWS profile:
 Skip ECR login (note that you can set default behavior in the config file) 
 
   $ okta-aws-login --no-ecr --user my-okta-user-name --aws-profile my-aws-profile1
-
 ```
 
 

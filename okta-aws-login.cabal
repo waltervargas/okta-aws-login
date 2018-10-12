@@ -24,6 +24,7 @@ executable okta-aws-login
                        Args
                        DockerLogin
                        OktaClient
+                       OktaLogin
                        STS
                        Types
 
