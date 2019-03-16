@@ -102,9 +102,9 @@ refreshAccountSession uc mte sas@SamlAccountSession{..} = do
 
   -- May need to try MFA
   sessionTok <- case res
-                  of AuthResponseSuccess st -> return st
-                     AuthResponseMFAChallenge st cr fid -> poll oktaOrg st fid
-                     AuthResponseMFARequired st mfas -> case mte
+                  of AuthResponseSuccess st            -> return st
+                     AuthResponseMFAChallenge st _ fid -> poll oktaOrg st fid
+                     AuthResponseMFARequired st mfas   -> case mte
                        of MFAFactorTOTP -> askForMFATOTP oktaOrg st mfas
                           MFAFactorPush -> mfaPush oktaOrg st mfas
                      AuthResponseOther e -> error $ "Unexpected Okta response: " <> show e
@@ -132,9 +132,9 @@ poll oOrg st fid = do
        Right r -> case r
                     of AuthResponseSuccess s -> return s
                        AuthResponseMFAChallenge st' cr fid' ->
-                         if (cr == MFAFactorWaiting)
+                         if cr == MFAFactorWaiting
                          then poll oOrg st' fid'
-                         else error $ "Unexpected result: " <> show cr
+                         else error $ "Unexpected Okta MFA challenge result: " <> show cr
                        e                     -> error $ "Unexpected Okta response: " <> show e
 
 mfaPush :: OktaOrg
@@ -155,9 +155,9 @@ mfaPush oOrg st mfas = do
   case errorOrRes
     of Left e -> error $ "Unexpected Okta response: " <> show e
        Right r -> case r
-                    of AuthResponseSuccess s                -> return s
-                       AuthResponseMFAChallenge st' cr fid' -> poll oOrg st' fid'
-                       e                                    -> error $ "Unexpected Okta response: " <> show e
+                    of AuthResponseSuccess s               -> return s
+                       AuthResponseMFAChallenge st' _ fid' -> poll oOrg st' fid'
+                       e                                   -> error $ "Unexpected Okta response: " <> show e
 
 -- | Ask user to enter 2nd factor token if required
 askForMFATOTP :: OktaOrg

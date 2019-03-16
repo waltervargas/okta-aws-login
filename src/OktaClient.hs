@@ -37,7 +37,7 @@ import           Types
 findFactors :: Text
             -> [MFAFactor]
             -> [MFAFactor]
-findFactors prefix factors = filter (\MFAFactor{..} -> T.isPrefixOf prefix mfaFactorType) factors
+findFactors prefix = filter (\MFAFactor{..} -> T.isPrefixOf prefix mfaFactorType)
 
 findTotpFactors :: [MFAFactor]
                 -> [MFAFactor]
