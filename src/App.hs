@@ -23,6 +23,7 @@ module App (
 , updateSamlSession
 , useMFA
 , usedMFA
+, mfaFactorToEnroll
 ) where
 
 
@@ -85,6 +86,9 @@ isVerbose = fmap argsVerbose getArgs
 
 keepReloading :: App Bool
 keepReloading = fmap argsKeepReloading getArgs
+
+mfaFactorToEnroll :: App MFAFactorType
+mfaFactorToEnroll = fmap argsMfaFactor getArgs
 
 doECRLogin :: SamlAccountSession -> App Bool
 doECRLogin SamlAccountSession{..} = do

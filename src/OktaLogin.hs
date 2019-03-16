@@ -39,10 +39,11 @@ oktaLogin = do
   $(logDebugSH) startedWithArgs
 
   cr <- getUserCredentials
+  mte <- mfaFactorToEnroll
   _ <- createInitialOrgSessions >>= setSamlSession
 
   -- First login, possibly ask user some questions
-  _ <- updateSamlSession (refreshSamlSession cr)
+  _ <- updateSamlSession (refreshSamlSession cr mte)
 
   minSessionDurationSeconds <- (\configs -> minimum (ocSessionDurationSeconds <$> configs)) <$> getOktaAWSConfig
   let sleepTime = minSessionDurationSeconds - 1 -- 1 sec before expiration
@@ -59,17 +60,18 @@ oktaLogin = do
 
     unless doRefresh $ error "Session refresh cancelled, exiting ..."
     useMFA False -- reset state, network may have switched by now
-    updateSamlSession (refreshSamlSession cr)
+    updateSamlSession (refreshSamlSession cr mte)
 
 
 -- | Refresh AWS (and possibly docker) auth sessions for all profiles listed on the command line
 refreshSamlSession :: UserCredentials
+                   -> MFAFactorType
                    -> SamlSession
                    -> App SamlSession
-refreshSamlSession cr sess = do
+refreshSamlSession cr mte sess = do
   $(logInfo) "Refreshing AWS session ..."
 
-  allUpdatedAccountSessions <- traverse (refreshAccountSession cr) sess
+  allUpdatedAccountSessions <- traverse (refreshAccountSession cr mte) sess
 
   let allUpdatedAwsCreds = (\SamlAccountSession{..} -> (sasAwsProfile, sasAwsCredentials)) <$> allUpdatedAccountSessions
       allUpdatedDockerAuths = concat (sasDockerAuths <$> allUpdatedAccountSessions)
@@ -84,12 +86,12 @@ refreshSamlSession cr sess = do
   $(logInfo) "Refreshed AWS session."
   return allUpdatedAccountSessions
 
-
 -- | Refresh AWS and possibly docker auths for a single AWS profile (usually associated with an account)
 refreshAccountSession :: UserCredentials
+                      -> MFAFactorType
                       -> SamlAccountSession
                       -> App SamlAccountSession
-refreshAccountSession uc sas@SamlAccountSession{..} = do
+refreshAccountSession uc mte sas@SamlAccountSession{..} = do
 
   oktaOrg <- parseOktaOrg sasEmbedLink
   errorOrRes <- oktaAuthenticate oktaOrg $ AuthRequestUserCredentials uc
@@ -101,7 +103,10 @@ refreshAccountSession uc sas@SamlAccountSession{..} = do
   -- May need to try MFA
   sessionTok <- case res
                   of AuthResponseSuccess st -> return st
-                     AuthResponseMFARequired st mfas -> askForMFA oktaOrg st mfas
+                     AuthResponseMFAChallenge st cr fid -> poll oktaOrg st fid
+                     AuthResponseMFARequired st mfas -> case mte
+                       of MFAFactorTOTP -> askForMFATOTP oktaOrg st mfas
+                          MFAFactorPush -> mfaPush oktaOrg st mfas
                      AuthResponseOther e -> error $ "Unexpected Okta response: " <> show e
 
   saml <- getOktaAWSSaml sasEmbedLink sessionTok
@@ -117,13 +122,49 @@ refreshAccountSession uc sas@SamlAccountSession{..} = do
 
   return updatedSession
 
+poll :: OktaOrg -> StateToken -> MFAFactorID -> App SessionToken
+poll oOrg st fid = do
 
--- | Ask user to enter 2nd factor token if required
-askForMFA :: OktaOrg
+  errorOrRes <- oktaMFAVerify oOrg $ AuthRequestMFAPollVerify st fid
+
+  case errorOrRes
+    of Left e -> error $ "Unexpected Okta response: " <> show e
+       Right r -> case r
+                    of AuthResponseSuccess s -> return s
+                       AuthResponseMFAChallenge st' cr fid' ->
+                         if (cr == MFAFactorWaiting)
+                         then poll oOrg st' fid'
+                         else error $ "Unexpected result: " <> show cr
+                       e                     -> error $ "Unexpected Okta response: " <> show e
+
+mfaPush :: OktaOrg
           -> StateToken
           -> [MFAFactor]
           -> App SessionToken
-askForMFA oOrg st mfas = do
+mfaPush oOrg st mfas = do
+  let pushMfas = findPushFactors mfas
+
+  fid <- do
+    MFAFactor{..} <- chooseOne $ NL.fromList $
+                        fmap (\(nc, f@MFAFactor{..}) -> nc mfaProvider f)
+                        (zip numericChoices pushMfas)
+    return mfaId
+
+  errorOrRes <- oktaMFAVerify oOrg $ AuthRequestMFAPushVerify st fid (RememberDevice True) (AutoPush True)
+
+  case errorOrRes
+    of Left e -> error $ "Unexpected Okta response: " <> show e
+       Right r -> case r
+                    of AuthResponseSuccess s                -> return s
+                       AuthResponseMFAChallenge st' cr fid' -> poll oOrg st' fid'
+                       e                                    -> error $ "Unexpected Okta response: " <> show e
+
+-- | Ask user to enter 2nd factor token if required
+askForMFATOTP :: OktaOrg
+          -> StateToken
+          -> [MFAFactor]
+          -> App SessionToken
+askForMFATOTP oOrg st mfas = do
   -- Mark that we needed MFA in this session. When we keep reloading we need to wait until the user
   -- is ready until acquiring state token. Otherwise it may expire by the time user reacts.
   useMFA True
@@ -144,7 +185,7 @@ askForMFA oOrg st mfas = do
 
   case errorOrRes
     of Left e -> do _ <- $(logError) $ "Unexpected Okta response: " <> tshow e <> " please try again."
-                    askForMFA oOrg st mfas
+                    askForMFATOTP oOrg st mfas
        Right r -> case r
                     of AuthResponseSuccess s -> return s
                        e                     -> error $ "Unexpected Okta response: " <> show e

@@ -28,6 +28,7 @@ data Args = Args { argsVerbose :: !Bool
                  , argsRegion :: !Region
                  , argsConfigFile :: !FilePath
                  , argsKeepReloading :: !Bool
+                 , argsMfaFactor :: !MFAFactorType
                  , argsECRLogin :: !(Maybe Bool)
                  } deriving (Show)
 
@@ -83,6 +84,12 @@ parseArgs defConf =
       ( long "keep-reloading"
     <> short 'k'
     <> help "Keep reloading session token hourly (that's the max TTL at the moment). This only works well on a trusted network where you don't need MFA.")
+  <*> option parseMfaFactor
+      ( long "mfa-factor"
+    <> short 'f'
+    <> value MFAFactorTOTP
+    <> showDefaultWith (T.unpack .toText)
+    <> help "MFA Factor." )
   <*> (
         flag Nothing (Just False) (long "no-ecr" <> help "Skip Docker login to ECR registry, default is in the config.")
         <|>
@@ -92,6 +99,9 @@ parseArgs defConf =
 
 parseRegion :: ReadM Region
 parseRegion = eitherReader (fromText . T.pack)
+
+parseMfaFactor :: ReadM MFAFactorType
+parseMfaFactor = eitherReader (fromText . T.pack)
 
 
 parseConfigArgs :: FilePath
