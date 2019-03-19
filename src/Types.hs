@@ -5,16 +5,19 @@
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE LambdaCase                 #-}
 
 
 -- | Type definitions
 module Types (
   AWSProfile(..)
 , AppConfig(..)
-, AuthRequestMFATOTPVerify(..)
+, AuthRequestMFAVerify(..)
 , AuthRequestUserCredentials(..)
 , InteractiveChoce(..)
 , MFAFactor(..)
+, MFAFactorType(..)
+, MFAFactorResult(..)
 , MFAFactorID(..)
 , MFAPassCode(..)
 , OktaAWSConfig(..)
@@ -23,6 +26,8 @@ module Types (
 , OktaError(..)
 , OktaOrg(..)
 , Password(..)
+, RememberDevice(..)
+, AutoPush(..)
 , RequestPath
 , SamlAWSCredentials(..)
 , SamlAccountSession(..)
@@ -36,7 +41,7 @@ module Types (
 ) where
 
 
-import           Control.Lens ((^..))
+import           Control.Lens ((^..), (^?!))
 import           Data.Aeson
 import           Data.Aeson.Casing
 import           Data.Aeson.Lens
@@ -44,11 +49,12 @@ import           Data.Aeson.TH
 import           Data.Aeson.Types
 import           Data.List.NonEmpty
 import           Data.String (IsString)
-import           Data.Text (Text)
+import           Data.Text (Text, unpack)
 import qualified Network.AWS.Data.ByteString as AWSBS
 import qualified Network.AWS.ECR as ECR
 import           Network.AWS.Prelude (Natural)
 import qualified Network.AWS.Types as AWST
+import           Network.AWS.Data.Text --(FromText)
 
 
 newtype UserName = UserName { unUserName :: Text } deriving (Eq, Show)
@@ -58,6 +64,9 @@ type UserCredentials = (UserName, Password)
 
 newtype MFAFactorID = MFAFactorID { unMfaFactorId :: Text } deriving (Eq, Show, Ord, FromJSON, ToJSON)
 newtype MFAPassCode = MFAPassCode { unMfaPassCode :: Text } deriving (Eq, Show, Ord, FromJSON, ToJSON)
+
+newtype AutoPush = AutoPush { unAutoPush :: Bool } deriving (Eq, Show, Ord, FromJSON, ToJSON)
+newtype RememberDevice = RememberDevice { unRememberDevice :: Bool } deriving (Eq, Show, Ord, FromJSON, ToJSON)
 
 
 newtype OktaOrg =
@@ -134,9 +143,31 @@ data SamlRole =
 newtype AuthRequestUserCredentials =
   AuthRequestUserCredentials UserCredentials deriving (Eq, Show)
 
--- | Verify MFA code
-data AuthRequestMFATOTPVerify =
-  AuthRequestMFATOTPVerify StateToken MFAFactorID MFAPassCode deriving (Eq, Show)
+
+data AuthRequestMFAVerify =
+    AuthRequestMFAPollVerify StateToken MFAFactorID
+  | AuthRequestMFATOTPVerify StateToken MFAFactorID MFAPassCode
+  | AuthRequestMFAPushVerify StateToken MFAFactorID RememberDevice AutoPush
+  deriving (Eq, Show)
+
+instance ToJSON AuthRequestMFAVerify where
+  toJSON (AuthRequestMFAPollVerify (StateToken tok) (MFAFactorID fid)) =
+    object [ "fid" .= fid
+           , "stateToken" .= tok
+           ]
+
+  toJSON (AuthRequestMFATOTPVerify (StateToken tok) (MFAFactorID fid) (MFAPassCode pc)) =
+    object [ "fid" .= fid
+           , "stateToken" .= tok
+           , "passCode" .= pc
+           ]
+
+  toJSON (AuthRequestMFAPushVerify (StateToken tok) (MFAFactorID fid) (RememberDevice remember) (AutoPush autoPush)) =
+    object [ "fid" .= fid
+           , "stateToken" .= tok
+           , "rememberDevice" .= remember
+           , "autoPush" .= autoPush
+           ]
 
 
 instance ToJSON AuthRequestUserCredentials where
@@ -147,14 +178,6 @@ instance ToJSON AuthRequestUserCredentials where
                                  , "warnBeforePasswordExpired" .= False
                                  ]
            ]
-
-instance ToJSON AuthRequestMFATOTPVerify where
-  toJSON (AuthRequestMFATOTPVerify (StateToken tok) (MFAFactorID fid) (MFAPassCode pc)) =
-    object [ "fid" .= fid
-           , "stateToken" .= tok
-           , "passCode" .= pc
-           ]
-
 
 
 -- | Enough fields to work with TOTP
@@ -168,11 +191,43 @@ data MFAFactor =
 
 $(deriveJSON (aesonPrefix camelCase) ''MFAFactor)
 
+data MFAFactorType = MFAFactorTOTP | MFAFactorPush deriving (Eq, Show)
+
+instance FromText MFAFactorType where
+  parser = takeLowerText >>= \case
+    "totp" -> pure MFAFactorTOTP
+    "push" -> pure MFAFactorPush
+    e      ->
+      fromTextError $ "Failure parsing MFA Factor to enroll from " <> e
+
+instance ToText MFAFactorType where
+  toText = \case
+    MFAFactorTOTP -> "totp"
+    MFAFactorPush -> "push"
+
+data MFAFactorResult = MFAFactorRejected | MFAFactorWaiting deriving (Eq, Show)
+
+instance FromJSON MFAFactorResult where
+  parseJSON (String s) = case unpack s of
+    "REJECTED" -> return MFAFactorRejected
+    "WAITING"  -> return MFAFactorWaiting
+    _          -> error "unkown result"
+
+  parseJSON invalid = typeMismatch "MFAFactorResult" invalid
+
+
+instance FromText MFAFactorResult where
+  parser = takeLowerText >>= \case
+    "rejected" -> pure MFAFactorRejected
+    "waiting"  -> pure MFAFactorWaiting
+    e          ->
+      fromTextError $ "Failure parsing MFA factor resultfrom " <> e
 
 -- | Subset of possible responses, just enough to loop in 2FA prompt.
 data OktaAuthResponse =
     AuthResponseSuccess SessionToken
   | AuthResponseMFARequired StateToken [MFAFactor]
+  | AuthResponseMFAChallenge StateToken MFAFactorResult MFAFactorID
   | AuthResponseOther Value
   deriving (Eq, Show)
 
@@ -182,10 +237,14 @@ instance FromJSON OktaAuthResponse where
   parseJSON v@(Object x) =
     do status <- x .: "status"
        case status of
-         String "SUCCESS"      -> AuthResponseSuccess <$> x .: "sessionToken"
-         String "MFA_REQUIRED" -> AuthResponseMFARequired <$> x .: "stateToken" <*>
-                                    return (Object x ^.. key "_embedded" . key "factors" . values . _JSON)
-         _                     -> return $ AuthResponseOther v
+         String "SUCCESS"       -> AuthResponseSuccess <$> x .: "sessionToken"
+         String "MFA_REQUIRED"  -> AuthResponseMFARequired <$> x .: "stateToken" <*>
+                                     return (Object x ^.. key "_embedded" . key "factors" . values . _JSON)
+         String "MFA_CHALLENGE" -> AuthResponseMFAChallenge <$> x .: "stateToken" <*>
+                                     x .: "factorResult" <*>
+                                     return (Object x ^?! key "_embedded" . key "factor" . key "id" . _JSON)
+
+         _                      -> return $ AuthResponseOther v
 
 
   parseJSON invalid = typeMismatch "OktaAuthResponse" invalid

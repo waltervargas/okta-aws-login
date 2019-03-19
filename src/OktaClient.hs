@@ -10,6 +10,7 @@
 
 module OktaClient (
   findTotpFactors
+, findPushFactors
 , getOktaAWSSaml
 , oktaAuthenticate
 , oktaMFAVerify
@@ -33,10 +34,18 @@ import           Text.HTML.TagSoup
 import           Types
 
 
+findFactors :: Text
+            -> [MFAFactor]
+            -> [MFAFactor]
+findFactors prefix = filter (\MFAFactor{..} -> T.isPrefixOf prefix mfaFactorType)
+
 findTotpFactors :: [MFAFactor]
                 -> [MFAFactor]
-findTotpFactors = filter (\MFAFactor{..} -> T.isPrefixOf "token" mfaFactorType) -- try to accept all (software,hardware) token types
+findTotpFactors = findFactors "token"
 
+findPushFactors :: [MFAFactor]
+                -> [MFAFactor]
+findPushFactors = findFactors "push"
 
 -- | Makes a request to /authn end point
 oktaAuthenticate :: OktaOrg
@@ -47,9 +56,13 @@ oktaAuthenticate oOrg = oktaPost oOrg "/api/v1/authn"
 
 -- | Makes a request to /authn end point
 oktaMFAVerify :: OktaOrg
-              -> AuthRequestMFATOTPVerify
+              -> AuthRequestMFAVerify
               -> App (Either OktaError OktaAuthResponse)
+oktaMFAVerify oOrg req@(AuthRequestMFAPollVerify _ (MFAFactorID fid)) =
+  oktaPost oOrg ("/api/v1/authn/factors/" <> fid <> "/verify") req
 oktaMFAVerify oOrg req@(AuthRequestMFATOTPVerify _ (MFAFactorID fid) _) =
+  oktaPost oOrg ("/api/v1/authn/factors/" <> fid <> "/verify") req
+oktaMFAVerify oOrg req@(AuthRequestMFAPushVerify _ (MFAFactorID fid) _ _) =
   oktaPost oOrg ("/api/v1/authn/factors/" <> fid <> "/verify") req
 
 
