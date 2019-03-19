@@ -89,3 +89,49 @@ Optionally you also need [hlint](https://github.com/ndmitchell/hlint) (`stack in
 Okta [API](http://developer.okta.com/docs/api/resources/authn.html).
 
 Okta official CLI [inspiration](https://github.com/oktadeveloper/okta-aws-cli-assume-role)
+
+
+# Cross-platform build notes
+
+## MacOS
+
+Assumed to be the host OS.
+
+Build / sign binary:
+```bash
+# make bindist
+```
+
+## Static linux binaries
+
+`make bindist` can be run from a [dockerized ghc toolchain](https://github.com/andreyk0/docker-haskell-platform-alpine) that links against libmusl and supports fully static binaries.
+
+E.g.:
+```bash
+# docker-haskell-platform-alpine
+# make bindist
+```
+
+## Windows binaries
+
+If you have access to AWS CodeBuild you can start from `aws/codebuild/windows-base:1.0` image and use the following build spec:
+
+```json
+phases:
+  build:
+    commands:
+    - stack build --verbose
+  install:
+    commands:
+    - refreshenv
+    - if ((Get-Command "stack.exe" -ErrorAction SilentlyContinue) -eq $null) { choco
+      install -y haskell-stack }
+    - refreshenv
+artifacts:
+  files:
+  - .stack-work\install\**\*
+cache:
+  paths:
+  - $env:USERPROFILE\.stack\**\*
+version: '0.2'
+```
