@@ -1,5 +1,6 @@
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TypeApplications  #-}
 
 -- | Company / account names / ids
 module AppConfig (
@@ -15,18 +16,20 @@ module AppConfig (
 
 import           Args
 import           Control.Bool
+import           Control.Lens
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty
-import qualified Data.ByteString.Lazy as LB
+import           Data.Aeson.Lens
+import           Data.Aeson.Types         (parseEither)
+import qualified Data.ByteString.Lazy     as LB
 import           Data.Foldable
-import           Data.List.NonEmpty (NonEmpty(..))
-import qualified Data.List.NonEmpty as NEL
+import           Data.List.NonEmpty       (NonEmpty (..))
+import qualified Data.List.NonEmpty       as NEL
 import           Data.Maybe
-import qualified Data.Text as T
+import qualified Data.Text                as T
 import           System.Directory
 import           System.Environment
 import           Types
-
 
 -- | Reads config file if present, returns Nothing otherwise
 tryReadAppConfig :: FilePath
@@ -34,10 +37,23 @@ tryReadAppConfig :: FilePath
 tryReadAppConfig confFp =
   ifThenElseM (doesFileExist confFp)
     ( do jsonData <- LB.readFile confFp
-         case eitherDecode' jsonData
+         case decodeNormalizedJson jsonData
            of Left e -> error $ "Unable to parse JSON config from " <> confFp <> " error: " <> e
               Right c -> (return . Just) c )
     (return Nothing)
+
+  where decodeNormalizedJson jsonData = do
+          jVal <- eitherDecode' @Value jsonData
+          -- JSON config format flipped as a side effect of a lib update.
+          -- See discussion: https://github.com/saksdirect/okta-aws-login/pull/11
+          -- This converts older format to whatever current JSON format happens to be going forward.
+          -- So, basically, "writes" always happen in the current format but during reads
+          -- we monkey patch old format to be compatible with new using lenses.
+          let jLatestJsonSchema = jVal & key "app_config" . values . _Object %~ (\conf ->
+                 conf & at "e_c_r_login" %~ maybe (conf ^? ix "e_cr_login") Just
+               )
+
+          parseEither (parseJSON @AppConfig) jLatestJsonSchema
 
 
 -- | Writes app config out to file

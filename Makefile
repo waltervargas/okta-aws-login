@@ -3,7 +3,7 @@ EXE=$(TARGET)/okta-aws-login
 DIST_EXE=$(EXE)-$(shell uname -s)-$(shell uname -m)
 DIST_EXE_SIG=$(DIST_EXE).sig
 
-default: build lint
+default: test lint
 
 build:
 	stack build okta-aws-login
@@ -11,8 +11,11 @@ build:
 build-prof:
 	stack build --profile --ghc-options="-rtsopts" okta-aws-login
 
+test:
+	stack test okta-aws-login
+
 lint:
-	hlint src
+	hlint src test
 
 install:
 	stack install okta-aws-login

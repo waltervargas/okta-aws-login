@@ -11,6 +11,7 @@ homepage: https://github.com/saksdirect/okta-aws-login
 
 ghc-options:
   - -Wall
+  - -Werror
   - -threaded
 
 dependencies:
@@ -56,7 +57,25 @@ dependencies:
   - xml-conduit
   - xml-lens
 
+library:
+  source-dirs: src
+
 executables:
   okta-aws-login:
     main: Main.hs
-    source-dirs: src
+    source-dirs: app
+    ghc-options:
+      - -threaded
+    dependencies:
+      - okta-aws-login
+
+tests:
+  okta-aws-login-test:
+    main: Spec.hs
+    source-dirs: test
+    ghc-options:
+      - -threaded
+    dependencies:
+      - HUnit
+      - hspec
+      - okta-aws-login

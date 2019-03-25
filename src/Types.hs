@@ -1,11 +1,10 @@
-{-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE LambdaCase                 #-}
 
 
 -- | Type definitions
@@ -41,20 +40,20 @@ module Types (
 ) where
 
 
-import           Control.Lens ((^..), (^?!))
+import           Control.Lens                ((^..), (^?!))
 import           Data.Aeson
 import           Data.Aeson.Casing
 import           Data.Aeson.Lens
 import           Data.Aeson.TH
 import           Data.Aeson.Types
 import           Data.List.NonEmpty
-import           Data.String (IsString)
-import           Data.Text (Text, unpack)
+import           Data.String                 (IsString)
+import           Data.Text                   (Text, unpack)
 import qualified Network.AWS.Data.ByteString as AWSBS
-import qualified Network.AWS.ECR as ECR
-import           Network.AWS.Prelude (Natural)
-import qualified Network.AWS.Types as AWST
-import           Network.AWS.Data.Text --(FromText)
+import           Network.AWS.Data.Text
+import qualified Network.AWS.ECR             as ECR
+import           Network.AWS.Prelude         (Natural)
+import qualified Network.AWS.Types           as AWST
 
 
 newtype UserName = UserName { unUserName :: Text } deriving (Eq, Show)
@@ -79,16 +78,17 @@ newtype OktaEmbedLink =
   OktaEmbedLink { unOktaEmbedLink :: Text } deriving (Eq, Show, FromJSON, ToJSON, IsString)
 
 data OktaAWSConfig =
-  OktaAWSConfig { ocEmbedLink :: !OktaEmbedLink
-                , ocAwsProfile :: !AWSProfile
-                , ocDefault :: !(Maybe Bool)
-                , ocECRLogin :: !(Maybe Bool)
+  OktaAWSConfig { ocEmbedLink              :: !OktaEmbedLink
+                , ocAwsProfile             :: !AWSProfile
+                , ocDefault                :: !(Maybe Bool)
+                , ocECRLogin               :: !(Maybe Bool)
                 , ocSessionDurationSeconds :: !Natural
                 } deriving (Eq, Show)
 
 $(deriveJSON (aesonPrefix snakeCase){ omitNothingFields = True } ''OktaAWSConfig)
 
-newtype AppConfig = AppConfig { unAppConfig:: NonEmpty OktaAWSConfig }
+newtype AppConfig =
+  AppConfig { unAppConfig:: NonEmpty OktaAWSConfig } deriving (Eq, Show)
 
 $(deriveJSON (aesonPrefix snakeCase) ''AppConfig)
 
@@ -117,13 +117,13 @@ instance Show SamlAWSCredentials where
                                                   "\" }"
 
 data SamlAccountSession =
-  SamlAccountSession { sasEmbedLink :: !OktaEmbedLink
-                     , sasECRLogin :: !Bool
+  SamlAccountSession { sasEmbedLink              :: !OktaEmbedLink
+                     , sasECRLogin               :: !Bool
                      , sasSessionDurationSeconds :: !Natural
-                     , sasAwsProfile :: !AWSProfile
-                     , sasChosenSamlRole :: !(Maybe SamlRole)
-                     , sasAwsCredentials :: !SamlAWSCredentials
-                     , sasDockerAuths :: ![ECR.AuthorizationData]
+                     , sasAwsProfile             :: !AWSProfile
+                     , sasChosenSamlRole         :: !(Maybe SamlRole)
+                     , sasAwsCredentials         :: !SamlAWSCredentials
+                     , sasDockerAuths            :: ![ECR.AuthorizationData]
                      } deriving (Eq, Show)
 
 type SamlSession = [SamlAccountSession]
@@ -134,7 +134,7 @@ newtype SamlAssertion = SamlAssertion { unSamlAssertion :: Text } deriving (Eq, 
 
 -- | Part of the SAML assertion payload, one of the available roles we can assume
 data SamlRole =
-  SamlRole { srRoleARN :: Text
+  SamlRole { srRoleARN      :: Text
            , srPrincipalARN :: Text
            } deriving (Eq, Show)
 
@@ -184,9 +184,9 @@ instance ToJSON AuthRequestUserCredentials where
 -- (https://en.wikipedia.org/wiki/Time-based_One-time_Password_Algorithm)
 -- factors, other factors are not supported for now
 data MFAFactor =
-  MFAFactor { mfaId :: MFAFactorID
+  MFAFactor { mfaId         :: MFAFactorID
             , mfaFactorType :: Text
-            , mfaProvider :: Text
+            , mfaProvider   :: Text
             } deriving (Eq, Show)
 
 $(deriveJSON (aesonPrefix camelCase) ''MFAFactor)
@@ -262,7 +262,7 @@ data OktaError =
 
 -- | To present user with choices
 data InteractiveChoce a =
-  InteractiveChoce { icKey :: Text
+  InteractiveChoce { icKey     :: Text
                    , icMessage :: Text
-                   , icChoice :: a
+                   , icChoice  :: a
                    } deriving (Eq, Show)

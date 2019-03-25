@@ -1,0 +1,23 @@
+{
+    "app_config": [
+        {
+            "embed_link": "https://blah.blah.com/home/amazon_aws/1",
+            "default": true,
+            "session_duration_seconds": 43200,
+            "aws_profile": "test1",
+            "e_c_r_login": true
+        },
+        {
+            "embed_link": "https://blah.blah.com/home/amazon_aws/2",
+            "default": false,
+            "session_duration_seconds": 43200,
+            "aws_profile": "test2",
+            "e_c_r_login": false
+        },
+        {
+            "embed_link": "https://blah.blah.com/home/amazon_aws/3",
+            "session_duration_seconds": 12345,
+            "aws_profile": "test3"
+        }
+    ]
+}
