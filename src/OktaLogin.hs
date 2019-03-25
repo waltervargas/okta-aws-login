@@ -114,7 +114,9 @@ refreshAccountSession uc mte sas@SamlAccountSession{..} = do
                 of Just sr -> return sr
                    Nothing -> chooseSamlRole (parseSamlAssertion saml)
 
-  (awsCreds, dockerAuths) <- awsAssumeRole sasECRLogin sasSessionDurationSeconds  saml samlRole
+  ecrLogin <- doECRLogin sas
+
+  (awsCreds, dockerAuths) <- awsAssumeRole ecrLogin sasSessionDurationSeconds  saml samlRole
 
   let updatedSession = sas { sasChosenSamlRole = Just samlRole
                            , sasAwsCredentials = awsCreds
