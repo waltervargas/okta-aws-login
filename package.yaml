@@ -1,0 +1,62 @@
+name: okta-aws-login
+version: '0.1.0.0'
+synopsis: CLI to login to AWS accounts with Okta SSO.
+description: Please see README.md
+category: Web
+author: Author name here
+maintainer: example@example.com
+copyright: 2016 Author name here
+license: BSD3
+homepage: https://github.com/saksdirect/okta-aws-login
+
+ghc-options:
+  - -Wall
+  - -threaded
+
+dependencies:
+  - aeson
+  - aeson-casing
+  - aeson-pretty
+  - amazonka
+  - amazonka-core
+  - amazonka-ecr
+  - amazonka-sts
+  - ansi-wl-pprint
+  - base
+  - base64-bytestring
+  - bytestring
+  - conduit
+  - conduit-extra
+  - containers
+  - control-bool
+  - directory
+  - exceptions
+  - filepath
+  - gitrev
+  - http-client
+  - http-conduit
+  - http-types
+  - ini
+  - lens
+  - lens-aeson
+  - monad-control
+  - monad-logger
+  - monad-loops
+  - mtl
+  - optparse-applicative
+  - process
+  - tagsoup
+  - text
+  - text-conversions
+  - time
+  - transformers
+  - transformers-base
+  - unordered-containers
+  - utf8-string
+  - xml-conduit
+  - xml-lens
+
+executables:
+  okta-aws-login:
+    main: Main.hs
+    source-dirs: src
