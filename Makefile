@@ -12,7 +12,7 @@ build-prof:
 	stack build --profile --ghc-options="-rtsopts" okta-aws-login
 
 lint:
-	hlint `find src -type f -name '*.hs'`
+	hlint src
 
 install:
 	stack install okta-aws-login
