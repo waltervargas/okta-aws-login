@@ -1,8 +1,8 @@
-{-# LANGUAGE BangPatterns       #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 module AWSCredsFile (
   updateAwsCreds
@@ -15,11 +15,11 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import           Data.Foldable
-import qualified Data.HashMap.Strict as M
+import qualified Data.HashMap.Strict    as M
 import           Data.Ini
 import           Data.Maybe
-import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
+import qualified Data.Text              as T
+import qualified Data.Text.IO           as TIO
 import           Network.AWS.Data.Text
 import           Network.AWS.Types
 import           System.Directory
@@ -61,13 +61,15 @@ updateProfileCredentials :: Region
 updateProfileCredentials region awsProf SamlAWSCredentials{..} awsIni =
   let profileSection = unAwsProfile awsProf
       savedProfileConfSection = fromMaybe M.empty $ M.lookup profileSection (unIni awsIni)
+      updatedProfileSection =
+        ( M.insert "region"                (toText region)
+        . M.insert "aws_access_key_id"     (toText sacAuthAccess)
+        . M.insert "aws_secret_access_key" (toText sacAuthSecret)
+        . M.insert "aws_session_token"     (toText sacAuthToken)
+        . M.insert "aws_security_token"    (toText sacAuthToken)
+        ) savedProfileConfSection
 
-   in Ini $ M.insert profileSection
-              ((M.insert "region"                (toText region) .
-                M.insert "aws_access_key_id"     (toText sacAuthAccess) .
-                M.insert "aws_secret_access_key" (toText sacAuthSecret) .
-                M.insert "aws_session_token"     (toText sacAuthToken) .
-                M.insert "aws_security_token"    (toText sacAuthToken) ) savedProfileConfSection ) (unIni awsIni)
+   in awsIni { iniSections = M.insert profileSection (M.toList updatedProfileSection) (iniSections awsIni) }
 
 
 -- | Creates a missing config file with a default text

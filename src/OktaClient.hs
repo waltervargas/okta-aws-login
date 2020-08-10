@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
@@ -23,6 +22,7 @@ import           Control.Monad.Catch
 import           Control.Monad.Logger
 import           Data.Aeson
 import qualified Data.ByteString.Lazy as LB
+import           Data.Foldable (find)
 import           Data.Maybe
 import           Data.Text (Text)
 import qualified Data.Text as T
@@ -140,7 +140,7 @@ parseSAMLResponseHTMLTag :: Text
                          -> Maybe Text
 parseSAMLResponseHTMLTag htmlT =
   let allInputTagAttributes = fmap (\(TagOpen _ attrs) -> attrs) $ filter (isTagOpenName "input") $ parseTags htmlT
-      samlResponseTag = listToMaybe $ filter (elem ("name", "SAMLResponse")) allInputTagAttributes
+      samlResponseTag = find (elem ("name", "SAMLResponse")) allInputTagAttributes
    in do samlTagAttrs <- samlResponseTag
          listToMaybe $ map snd $ filter (\(n,_) -> n == "value") samlTagAttrs
 

@@ -1,7 +1,6 @@
-{-# LANGUAGE BangPatterns       #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 
 module OktaLogin (
@@ -9,16 +8,17 @@ module OktaLogin (
 ) where
 
 
-import           AWSCredsFile
 import           App
+import           AWSCredsFile
 import           Control.Concurrent
+import           Control.Lens ((^..))
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import           Control.Monad.Loops
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Lazy as LB
-import           Data.List.NonEmpty (NonEmpty(..))
+import           Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NL
 import           Data.Maybe
 import qualified Data.Text as T
@@ -206,10 +206,10 @@ parseSamlAssertion :: SamlAssertion
                    -> NonEmpty SamlRole
 parseSamlAssertion (SamlAssertion sa) =
   let doc = parseLBS_ def ((LB.fromStrict . B64.decodeLenient . TE.encodeUtf8) sa)
-      roles = doc ^.. root . named "Response" ./
-                             named "Assertion" ./
-                             named "AttributeStatement" ./
-                             (named "Attribute" . attributeIs "Name" "https://aws.amazon.com/SAML/Attributes/Role") ./
+      roles = doc ^.. root . named "Response" ...
+                             named "Assertion" ...
+                             named "AttributeStatement" ...
+                             (named "Attribute" . attributeIs "Name" "https://aws.amazon.com/SAML/Attributes/Role") ...
                              (named "AttributeValue" . text)
 
       mkRole [pArn, rArn] = SamlRole rArn pArn
