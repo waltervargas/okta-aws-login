@@ -24,4 +24,6 @@ hsPkgs.shellFor {
     ${hsPkgs.pre-commit-check.shellHook}
     export LANG=en_US.UTF-8
   '';
+} // {
+  okta-aws-login-tests = hsPkgs.okta-aws-login.checks;
 }
