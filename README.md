@@ -7,7 +7,9 @@ Older static binary [Releases](https://github.com/EarnestResearch/okta-aws-login
 
 # Install
 
-TODO: add `nix` instructions.
+```shell
+$ nix-env -f https://github.com/EarnestResearch/er-nix/archive/master.tar.gz -iA pkgs.okta-aws-login
+```
 
 Initially this tool needs to be configured, you need to know:
    - Okta "embed" link for your AWS account
