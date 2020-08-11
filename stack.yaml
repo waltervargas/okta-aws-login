@@ -1,4 +1,18 @@
-resolver: lts-13.14
+resolver: lts-16.6
 
 packages:
-- '.'
+  - .
+
+extra-deps:
+  - github: EarnestResearch/amazonka
+    commit: "86cfb69ff2641c4d8132400789eb13af297de5d3"
+    # nix-sha256: 1l3q4b2195rmx2zlafcbpdnsa3dmf4bhcyrnha0ljhzw4ipgnipa
+    subdirs:
+      - core
+      - amazonka
+      - amazonka-cloudformation
+      - amazonka-ecr
+      - amazonka-sts
+
+ghc-options:
+  "$locals": -j

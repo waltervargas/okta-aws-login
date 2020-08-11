@@ -20,13 +20,13 @@ import           Control.Lens
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty
 import           Data.Aeson.Lens
-import           Data.Aeson.Types         (parseEither)
-import qualified Data.ByteString.Lazy     as LB
+import           Data.Aeson.Types (parseEither)
+import qualified Data.ByteString.Lazy as LB
 import           Data.Foldable
-import           Data.List.NonEmpty       (NonEmpty (..))
-import qualified Data.List.NonEmpty       as NEL
+import           Data.List.NonEmpty (NonEmpty (..))
+import qualified Data.List.NonEmpty as NEL
 import           Data.Maybe
-import qualified Data.Text                as T
+import qualified Data.Text as T
 import           System.Directory
 import           System.Environment
 import           Types
@@ -92,7 +92,7 @@ loadAppConfig Args{..} = do
   let defaultConfiguredProfiles = ocAwsProfile <$> NEL.filter (fromMaybe False . ocDefault) (unAppConfig appConf)
 
        -- consider profiles in the order of preference
-      selectedProfiles = fromMaybe [] $ listToMaybe $ filter (not . null)
+      selectedProfiles = fromMaybe [] $ find (not . null)
                            [ argsAwsProfiles
                            , maybeToList envProf
                            , defaultConfiguredProfiles

@@ -1,4 +1,6 @@
+/dist-newstyle
+/.pre-commit-config.yaml
 /.sources
 /.stack-work
-/okta-aws-login.cabal
+/stack.yaml.lock
 /target

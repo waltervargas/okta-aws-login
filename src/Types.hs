@@ -40,20 +40,20 @@ module Types (
 ) where
 
 
-import           Control.Lens                ((^..), (^?!))
+import           Control.Lens ((^..), (^?!))
 import           Data.Aeson
 import           Data.Aeson.Casing
 import           Data.Aeson.Lens
 import           Data.Aeson.TH
 import           Data.Aeson.Types
 import           Data.List.NonEmpty
-import           Data.String                 (IsString)
-import           Data.Text                   (Text, unpack)
+import           Data.String (IsString)
+import qualified Data.Text as T
 import qualified Network.AWS.Data.ByteString as AWSBS
 import           Network.AWS.Data.Text
-import qualified Network.AWS.ECR             as ECR
-import           Network.AWS.Prelude         (Natural)
-import qualified Network.AWS.Types           as AWST
+import qualified Network.AWS.ECR as ECR
+import           Network.AWS.Prelude (Natural)
+import qualified Network.AWS.Types as AWST
 
 
 newtype UserName = UserName { unUserName :: Text } deriving (Eq, Show)
@@ -208,7 +208,7 @@ instance ToText MFAFactorType where
 data MFAFactorResult = MFAFactorRejected | MFAFactorWaiting deriving (Eq, Show)
 
 instance FromJSON MFAFactorResult where
-  parseJSON (String s) = case unpack s of
+  parseJSON (String s) = case T.unpack s of
     "REJECTED" -> return MFAFactorRejected
     "WAITING"  -> return MFAFactorWaiting
     _          -> error "unkown result"

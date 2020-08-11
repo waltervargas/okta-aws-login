@@ -32,10 +32,11 @@ import           Args
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
-import           Control.Monad.Trans.Reader (ReaderT, runReaderT)
 import           Control.Monad.Reader.Class
+import           Control.Monad.Trans.Reader (ReaderT, runReaderT)
+import           Data.Foldable (find)
 import           Data.IORef
-import           Data.List.NonEmpty (NonEmpty(..))
+import           Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NEL
 import           Data.Maybe
 import           Data.Text (Text)
@@ -46,12 +47,13 @@ import           System.IO
 import           Types
 
 
-data AppState =
-  AppState { asArgs :: !Args
-           , asOktaAWSConfig :: !(NonEmpty OktaAWSConfig)
-           , asSamlSessionRef :: !(IORef SamlSession)
-           , asUsedMFA :: !(IORef Bool) -- ^ remember if we had to use MFA codes during session (as opposed to being on a trusted net)
-           }
+data AppState = AppState
+    { asArgs           :: !Args
+    , asOktaAWSConfig  :: !(NonEmpty OktaAWSConfig)
+    , asSamlSessionRef :: !(IORef SamlSession)
+    -- ^ remember if we had to use MFA codes during session (as opposed to being on a trusted net)
+    , asUsedMFA        :: !(IORef Bool) -- ^ remember if we had to use MFA codes during session (as opposed to being on a trusted net)
+    }
 
 
 newtype App a =
@@ -102,7 +104,7 @@ getOktaAWSConfig = App $ fmap asOktaAWSConfig ask
 getUserCredentials :: App UserCredentials
 getUserCredentials = getArgs >>= \Args{..} -> do
   uName <- case argsUserName
-             of Just u -> return u
+             of Just u  -> return u
                 Nothing -> UserName <$> askUser True "User > "
   password <- Password <$> askUser False "Please enter Okta password > "
   return (uName, password)
@@ -170,7 +172,7 @@ lookupChoice :: Text -- ^ key
              -> [InteractiveChoce a]
              -> Maybe a
 lookupChoice k cs =
-  fmap icChoice $ listToMaybe $ filter (\InteractiveChoce{..} -> icKey == k) cs
+  icChoice <$> find (\InteractiveChoce{..} -> icKey == k) cs
 
 
 -- | Ask user to pick an option among available choices

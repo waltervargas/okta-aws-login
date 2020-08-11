@@ -1,0 +1,197 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.33.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: b26f0c5740440f93b1155c4643a118b194248f3cfbc6f2b127f6be3bb220fdcc
+
+name:           okta-aws-login
+version:        0.1.0.0
+synopsis:       CLI to login to AWS accounts with Okta SSO.
+description:    Please see README.md
+category:       Web
+homepage:       https://github.com/EarnestResearch/okta-aws-login
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2016 Author name here
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+
+flag use-build-tools
+  description: stupid hack to run tests locally
+  manual: True
+  default: True
+
+library
+  exposed-modules:
+      App
+      AppConfig
+      Args
+      AWSCredsFile
+      DockerLogin
+      OktaClient
+      OktaLogin
+      STS
+      Types
+  other-modules:
+      Paths_okta_aws_login
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Werror
+  build-depends:
+      aeson
+    , aeson-casing
+    , aeson-pretty
+    , amazonka
+    , amazonka-core
+    , amazonka-ecr
+    , amazonka-sts
+    , ansi-wl-pprint
+    , base
+    , base64-bytestring
+    , bytestring
+    , conduit
+    , conduit-extra
+    , containers
+    , control-bool
+    , directory
+    , exceptions
+    , filepath
+    , gitrev
+    , http-client
+    , http-conduit
+    , http-types
+    , ini
+    , lens
+    , lens-aeson
+    , monad-control
+    , monad-logger
+    , monad-loops
+    , mtl
+    , optparse-applicative
+    , process
+    , tagsoup
+    , text
+    , text-conversions
+    , time
+    , transformers
+    , transformers-base
+    , unordered-containers
+    , utf8-string
+    , xml-conduit
+    , xml-lens
+  default-language: Haskell2010
+
+executable okta-aws-login
+  main-is: Main.hs
+  other-modules:
+      Paths_okta_aws_login
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Werror -threaded
+  build-depends:
+      aeson
+    , aeson-casing
+    , aeson-pretty
+    , amazonka
+    , amazonka-core
+    , amazonka-ecr
+    , amazonka-sts
+    , ansi-wl-pprint
+    , base
+    , base64-bytestring
+    , bytestring
+    , conduit
+    , conduit-extra
+    , containers
+    , control-bool
+    , directory
+    , exceptions
+    , filepath
+    , gitrev
+    , http-client
+    , http-conduit
+    , http-types
+    , ini
+    , lens
+    , lens-aeson
+    , monad-control
+    , monad-logger
+    , monad-loops
+    , mtl
+    , okta-aws-login
+    , optparse-applicative
+    , process
+    , tagsoup
+    , text
+    , text-conversions
+    , time
+    , transformers
+    , transformers-base
+    , unordered-containers
+    , utf8-string
+    , xml-conduit
+    , xml-lens
+  default-language: Haskell2010
+
+test-suite okta-aws-login-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Specs.AppConfigSpec
+      TestImports
+      Paths_okta_aws_login
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Werror -threaded
+  build-depends:
+      HUnit
+    , aeson
+    , aeson-casing
+    , aeson-pretty
+    , amazonka
+    , amazonka-core
+    , amazonka-ecr
+    , amazonka-sts
+    , ansi-wl-pprint
+    , base
+    , base64-bytestring
+    , bytestring
+    , conduit
+    , conduit-extra
+    , containers
+    , control-bool
+    , directory
+    , exceptions
+    , filepath
+    , gitrev
+    , hspec
+    , http-client
+    , http-conduit
+    , http-types
+    , ini
+    , lens
+    , lens-aeson
+    , monad-control
+    , monad-logger
+    , monad-loops
+    , mtl
+    , okta-aws-login
+    , optparse-applicative
+    , process
+    , tagsoup
+    , text
+    , text-conversions
+    , time
+    , transformers
+    , transformers-base
+    , unordered-containers
+    , utf8-string
+    , xml-conduit
+    , xml-lens
+  if flag(use-build-tools)
+    build-tool-depends:
+        hspec-discover:hspec-discover
+  default-language: Haskell2010

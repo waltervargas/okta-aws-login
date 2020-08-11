@@ -1,0 +1,8 @@
+# HLint configuration file
+# https://github.com/ndmitchell/hlint
+##########################
+
+ - arguments: [-XQuasiQuotes, -XTypeApplications, -XTemplateHaskell]
+
+# To generate a suitable file for HLint do:
+# $ hlint --default > .hlint.yaml
