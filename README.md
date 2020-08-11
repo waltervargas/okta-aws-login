@@ -2,13 +2,13 @@
 
 Logs in to [AWS ECR](https://aws.amazon.com/ecr/) at the same time. Populates `$HOME/.aws/credentials` and runs `docker login` with temporary ECR credentials.
 
-[Releases](https://github.com/saksdirect/okta-aws-login/releases)
+Older static binary [Releases](https://github.com/EarnestResearch/okta-aws-login/releases). Please see install notes for `nix` instructions.
 
 
 # Install
 
-```bash
-curl -L https://raw.githubusercontent.com/saksdirect/okta-aws-login/master/install | /bin/bash
+```shell
+$ nix-env -f https://github.com/EarnestResearch/er-nix/archive/master.tar.gz -iA pkgs.okta-aws-login
 ```
 
 Initially this tool needs to be configured, you need to know:
@@ -36,7 +36,7 @@ Usage: okta-aws-login ([COMMAND] | [-V|--version] [-v|--verbose] [-u|--user ARG]
                       [-c|--config-file ARG] [-k|--keep-reloading] ([--no-ecr] |
                       [--ecr]) | [-l|--list-profiles])
   Login to AWS via Okta/SAML (source:
-  https://github.com/saksdirect/okta-aws-login) Default config file:
+  https://github.com/EarnestResearch/okta-aws-login) Default config file:
   "/Users/yourhome/.okta-aws-login.json"
 
 Available options:
@@ -81,57 +81,9 @@ Skip ECR login (note that you can set default behavior in the config file)
 
 # Development
 
-To build it from source you need [haskell stack](https://docs.haskellstack.org/en/stable/README/).
-While not strictly required, `Makefile` tries to compress generated binaries with [upx](https://upx.github.io/) (`brew install upx`).
-Optionally you also need [hlint](https://github.com/ndmitchell/hlint) (`stack install hlint`).
-
+To build it from source you need [nix](https://nixos.org/download.html) package manager.
+[Direnv](https://nixos.wiki/wiki/Development_environment_with_nix-shell) is recommended (but you can also just launch `nix-shell` manually in the project's directory).
 
 Okta [API](http://developer.okta.com/docs/api/resources/authn.html).
 
 Okta official CLI [inspiration](https://github.com/oktadeveloper/okta-aws-cli-assume-role)
-
-
-# Cross-platform build notes
-
-## MacOS
-
-Assumed to be the host OS.
-
-Build / sign binary:
-```bash
-# make bindist
-```
-
-## Static linux binaries
-
-`make bindist` can be run from a [dockerized ghc toolchain](https://github.com/andreyk0/docker-haskell-platform-alpine) that links against libmusl and supports fully static binaries.
-
-E.g.:
-```bash
-# docker-haskell-platform-alpine
-# make bindist
-```
-
-## Windows binaries
-
-If you have access to AWS CodeBuild you can start from `aws/codebuild/windows-base:1.0` image and use the following build spec:
-
-```json
-phases:
-  build:
-    commands:
-    - stack build --verbose
-  install:
-    commands:
-    - refreshenv
-    - if ((Get-Command "stack.exe" -ErrorAction SilentlyContinue) -eq $null) { choco
-      install -y haskell-stack }
-    - refreshenv
-artifacts:
-  files:
-  - .stack-work\install\**\*
-cache:
-  paths:
-  - $env:USERPROFILE\.stack\**\*
-version: '0.2'
-```

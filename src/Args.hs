@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Args (
   Args(..)
@@ -22,23 +22,23 @@ import           Types
 
 
 -- | Arguments used for main (login to AWS) functionality
-data Args = Args { argsVerbose :: !Bool
-                 , argsUserName :: !(Maybe UserName)
-                 , argsAwsProfiles :: ![AWSProfile]
-                 , argsRegion :: !Region
-                 , argsConfigFile :: !FilePath
+data Args = Args { argsVerbose       :: !Bool
+                 , argsUserName      :: !(Maybe UserName)
+                 , argsAwsProfiles   :: ![AWSProfile]
+                 , argsRegion        :: !Region
+                 , argsConfigFile    :: !FilePath
                  , argsKeepReloading :: !Bool
-                 , argsMfaFactor :: !MFAFactorType
-                 , argsECRLogin :: !(Maybe Bool)
+                 , argsMfaFactor     :: !MFAFactorType
+                 , argsECRLogin      :: !(Maybe Bool)
                  } deriving (Show)
 
 
 -- | Arguments used to initially configure this tool
-data ConfigArgs = ConfigArgs { confArgsProfile :: !AWSProfile
-                             , confArgsOktaEmbedLink :: !OktaEmbedLink
-                             , confArgsIsDefaultProfile :: !(Maybe Bool)
-                             , confArgsEnableECRLogin :: !(Maybe Bool)
-                             , confArgsConfFilePath :: !FilePath
+data ConfigArgs = ConfigArgs { confArgsProfile                :: !AWSProfile
+                             , confArgsOktaEmbedLink          :: !OktaEmbedLink
+                             , confArgsIsDefaultProfile       :: !(Maybe Bool)
+                             , confArgsEnableECRLogin         :: !(Maybe Bool)
+                             , confArgsConfFilePath           :: !FilePath
                              , confArgsSessionDurationSeconds :: !Natural
                              } deriving Show
 
@@ -166,7 +166,7 @@ parseCLICommand = do
       ( fullDesc
      <> header "Login to AWS via Okta/SAML."
      <> progDesc ( "Login to AWS via Okta/SAML " <>
-                   " (source: https://github.com/saksdirect/okta-aws-login) " <>
+                   " (source: https://github.com/EarnestResearch/okta-aws-login) " <>
                    " Default config file: " <> show defConf
                  )
      <> (footerDoc . Just)
