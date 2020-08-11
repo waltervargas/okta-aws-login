@@ -15,11 +15,11 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import           Data.Foldable
-import qualified Data.HashMap.Strict    as M
+import qualified Data.HashMap.Strict as M
 import           Data.Ini
 import           Data.Maybe
-import qualified Data.Text              as T
-import qualified Data.Text.IO           as TIO
+import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import           Network.AWS.Data.Text
 import           Network.AWS.Types
 import           System.Directory

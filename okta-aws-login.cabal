@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b26f0c5740440f93b1155c4643a118b194248f3cfbc6f2b127f6be3bb220fdcc
+-- hash: 57a58e111b0284ceaee6bcf15e7a708147751bc7ceb7858465995f2752d3621f
 
 name:           okta-aws-login
 version:        0.1.0.0
@@ -18,6 +18,9 @@ copyright:      2016 Author name here
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
+data-files:
+    data/test-config-current-json-format.json
+    data/test-config-old-json-format.json
 
 flag use-build-tools
   description: stupid hack to run tests locally
