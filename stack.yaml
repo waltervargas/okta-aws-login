@@ -3,16 +3,25 @@ resolver: lts-16.6
 packages:
   - .
 
-extra-deps:
-  - github: EarnestResearch/amazonka
-    commit: "86cfb69ff2641c4d8132400789eb13af297de5d3"
-    # nix-sha256: 1l3q4b2195rmx2zlafcbpdnsa3dmf4bhcyrnha0ljhzw4ipgnipa
-    subdirs:
-      - core
-      - amazonka
-      - amazonka-cloudformation
-      - amazonka-ecr
-      - amazonka-sts
+#
+# Use official amazonka from stackage for now.
+# Ours appears to have a small issue somewhere that results in an ECR login err.
+# We send
+#   Credential=BLAH/20200812/us-east-1/api.ecr/aws4_request
+# (notice the api.ecr part) that matches prefix from
+#   host = api.ecr.us-east-1.amazonaws.com:443
+# but ECR API requires the "Credential" part to be "ecr", i.e. no "api." prefix.
+#
+# extra-deps:
+#   - github: EarnestResearch/amazonka
+#     commit: "86cfb69ff2641c4d8132400789eb13af297de5d3"
+#     # nix-sha256: 1l3q4b2195rmx2zlafcbpdnsa3dmf4bhcyrnha0ljhzw4ipgnipa
+#     subdirs:
+#       - core
+#       - amazonka
+#       - amazonka-cloudformation
+#       - amazonka-ecr
+#       - amazonka-sts
 
 ghc-options:
   "$locals": -j
