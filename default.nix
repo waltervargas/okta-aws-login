@@ -7,7 +7,9 @@ pkgs.haskell-nix.stackProject {
     {
       packages.okta-aws-login.doHaddock = false;
       packages.okta-aws-login.cabal-generator = pkgs.lib.mkForce null;
+      packages.okta-aws-login.dontStrip = false;
       packages.okta-aws-login.enableShared = false;
+      packages.okta-aws-login.enableStatic = true;
     }
   ];
 } // {
