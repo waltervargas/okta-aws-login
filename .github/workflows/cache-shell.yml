@@ -9,7 +9,7 @@ jobs:
   tests:
     strategy:
       matrix:
-        os: [macos-latest]
+        os: [macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2.3.2
@@ -19,4 +19,5 @@ jobs:
         name: earnestresearch-public
         signingKey: '${{ secrets.EARNESTRESEARCH_PUBLIC_CACHIX_SIGNING_KEY }}'
     - run: cachix use earnestresearch-public
+    - run: nix-build ./default.nix -A okta-aws-login.components.exes.okta-aws-login
     - run: nix-shell --run "exit 0"
