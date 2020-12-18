@@ -8,7 +8,7 @@ pre-commit-hooks.run {
       enable = true;
       excludes = [ "nix/okta-aws-login.materialized/.*" ];
     };
-    stylish-haskell = {
+    stylish-haskell-er = {
       enable = true;
       name = "stylish-haskell";
       description = "Run stylish-haskell on haskell files";

@@ -72,7 +72,7 @@ mergeAppConfig oConf appConf = AppConfig $
   oConf :| (maybeResetDefault . filterOutExisting . unAppConfig) appConf
 
   where filterOutExisting = NEL.filter (\c -> ocAwsProfile c /= ocAwsProfile oConf)
-        maybeResetDefault xs = if fromMaybe False (ocDefault oConf)
+        maybeResetDefault xs = if Just True == ocDefault oConf
                                  then fmap (\c -> c { ocDefault = Just False }) xs
                                  else xs
 

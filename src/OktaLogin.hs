@@ -8,8 +8,8 @@ module OktaLogin (
 ) where
 
 
-import           App
 import           AWSCredsFile
+import           App
 import           Control.Concurrent
 import           Control.Lens ((^..))
 import           Control.Monad
@@ -229,7 +229,7 @@ createInitialOrgSessions = do
   let emptyCreds = SamlAWSCredentials "" "" ""
 
       initialAccountSession OktaAWSConfig{..} =
-        SamlAccountSession ocEmbedLink (fromMaybe False ocECRLogin) ocSessionDurationSeconds ocAwsProfile Nothing emptyCreds []
+        SamlAccountSession ocEmbedLink (Just True == ocECRLogin) ocSessionDurationSeconds ocAwsProfile Nothing emptyCreds []
 
       initialAccountSessions = initialAccountSession <$> samlConfs
 
