@@ -1,5 +1,0 @@
-verbose: 2
-
--- Work around CI/Nix integration issue.
--- See notes in the package.yaml
-flags: -use-build-tools

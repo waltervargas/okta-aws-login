@@ -11,5 +11,3 @@ cradle:
 
 dependencies:
   - package.yaml
-  - shell.nix
-  - default.nix

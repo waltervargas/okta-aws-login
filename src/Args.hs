@@ -11,7 +11,7 @@ module Args (
 import           Data.Functor
 import qualified Data.Text as T
 import           Development.GitRev
-import           Network.AWS.Data
+import           Network.AWS.Data.Text
 import           Network.AWS.Prelude (Natural)
 import           Network.AWS.Types
 import           Options.Applicative

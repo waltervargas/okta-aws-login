@@ -20,7 +20,6 @@ dependencies:
   - aeson
   - aeson-casing
   - aeson-pretty
-  - amazonka
   - amazonka-core
   - amazonka-ecr
   - amazonka-sts
@@ -81,15 +80,5 @@ tests:
       - HUnit
       - hspec
       - okta-aws-login
-    when:
-    - condition: flag(use-build-tools)
-      build-tools:
-        - hspec-discover
-
-flags:
-# See https://github.com/input-output-hk/haskell.nix/issues/231
-# locally this works in combination with cabal.project.local hack
-  use-build-tools:
-    description: stupid hack to run tests locally
-    manual: true
-    default: true
+    build-tools:
+      - hspec-discover

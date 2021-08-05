@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.2.
+-- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 57a58e111b0284ceaee6bcf15e7a708147751bc7ceb7858465995f2752d3621f
+-- hash: 7f9458e17561652f94f61d5cc0b685204bda66e899924e09ce042db0a7a45aa6
 
 name:           okta-aws-login
 version:        0.1.0.0
@@ -21,11 +21,6 @@ build-type:     Simple
 data-files:
     data/test-config-current-json-format.json
     data/test-config-old-json-format.json
-
-flag use-build-tools
-  description: stupid hack to run tests locally
-  manual: True
-  default: True
 
 library
   exposed-modules:
@@ -47,7 +42,6 @@ library
       aeson
     , aeson-casing
     , aeson-pretty
-    , amazonka
     , amazonka-core
     , amazonka-ecr
     , amazonka-sts
@@ -98,7 +92,6 @@ executable okta-aws-login
       aeson
     , aeson-casing
     , aeson-pretty
-    , amazonka
     , amazonka-core
     , amazonka-ecr
     , amazonka-sts
@@ -149,12 +142,13 @@ test-suite okta-aws-login-test
   hs-source-dirs:
       test
   ghc-options: -Wall -Werror -threaded
+  build-tool-depends:
+      hspec-discover:hspec-discover
   build-depends:
       HUnit
     , aeson
     , aeson-casing
     , aeson-pretty
-    , amazonka
     , amazonka-core
     , amazonka-ecr
     , amazonka-sts
@@ -194,7 +188,4 @@ test-suite okta-aws-login-test
     , utf8-string
     , xml-conduit
     , xml-lens
-  if flag(use-build-tools)
-    build-tool-depends:
-        hspec-discover:hspec-discover
   default-language: Haskell2010
