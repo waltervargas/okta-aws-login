@@ -14,7 +14,7 @@ import           Control.Lens
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import qualified Data.Text as T
-import           Network.AWS.Types
+import           Control.Monad.Trans.AWS
 import           Network.AWS.ECR
 import           Network.AWS.Prelude
 import           Network.AWS.STS

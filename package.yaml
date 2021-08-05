@@ -20,6 +20,7 @@ dependencies:
   - aeson
   - aeson-casing
   - aeson-pretty
+  - amazonka
   - amazonka-core
   - amazonka-ecr
   - amazonka-sts

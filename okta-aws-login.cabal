@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7f9458e17561652f94f61d5cc0b685204bda66e899924e09ce042db0a7a45aa6
+-- hash: 74bcf7b5ac72955e2459d4d247ae5eac04619b3e0e1bd18430d96a1c36753593
 
 name:           okta-aws-login
 version:        0.1.0.0
@@ -42,6 +42,7 @@ library
       aeson
     , aeson-casing
     , aeson-pretty
+    , amazonka
     , amazonka-core
     , amazonka-ecr
     , amazonka-sts
@@ -92,6 +93,7 @@ executable okta-aws-login
       aeson
     , aeson-casing
     , aeson-pretty
+    , amazonka
     , amazonka-core
     , amazonka-ecr
     , amazonka-sts
@@ -149,6 +151,7 @@ test-suite okta-aws-login-test
     , aeson
     , aeson-casing
     , aeson-pretty
+    , amazonka
     , amazonka-core
     , amazonka-ecr
     , amazonka-sts
