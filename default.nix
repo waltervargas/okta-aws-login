@@ -5,7 +5,7 @@
   stack2nix-output-path ? "custom-stack2nix-output.nix",
 }:
 let
-  cabalPackageName = "example-project";
+  cabalPackageName = "okta-aws-login";
   compiler = "ghc8104"; # matching stack.yaml
 
   # Pin static-haskell-nix version.
@@ -18,15 +18,14 @@ let
   # Pin nixpkgs version
   # By default to the one `static-haskell-nix` provides, but you may also give
   # your own as long as it has the necessary patches, using e.g.
-  pkgs = import (fetchTarball https://github.com/NixOS/nixpkgs/archive/06552b72346632b6943c8032e57e702ea12413bf.tar.gz) {};
-  # Latest:
-  #pkgs = import "${static-haskell-nix}/nixpkgs.nix";
+  # pkgs = import (fetchTarball https://github.com/NixOS/nixpkgs/archive/06552b72346632b6943c8032e57e702ea12413bf.tar.gz) {};
+  pkgs = import "${static-haskell-nix}/nixpkgs.nix";
 
   stack2nix-script = import "${static-haskell-nix}/static-stack2nix-builder/stack2nix-script.nix" {
     inherit pkgs;
     inherit compiler;
     stack-project-dir = toString ./.; # where stack.yaml is
-    hackageSnapshot = "2021-07-11T00:00:00Z"; # pins e.g. extra-deps without hashes or revisions
+    hackageSnapshot = "2021-08-04T00:00:00Z"; # pins e.g. extra-deps without hashes or revisions
   };
 
   static-stack2nix-builder = import "${static-haskell-nix}/static-stack2nix-builder/default.nix" {
